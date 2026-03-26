@@ -62,6 +62,15 @@ Grafana has Prometheus, Loki, and Tempo pre-wired as datasources. This is the ma
 interface for querying metrics, browsing logs, and viewing traces. Loki and Tempo
 have no standalone UI — use Grafana for everything.
 
+**Recommended dashboards** (import via Dashboards → New → Import):
+
+| ID | Name | Datasource | Description |
+|---|---|---|---|
+| 315 | Kubernetes cluster overview | Prometheus | Pod counts, deployments, namespaces, and resource usage across the cluster |
+| 1860 | Node Exporter Full | Prometheus | Detailed per-node CPU, memory, disk, and network metrics from node-exporter |
+| 15141 | Loki Kubernetes Logs | Loki | Browse and search container logs by namespace, pod, and stream |
+
+
 ### Prometheus (port-forward required)
 
 ```bash
