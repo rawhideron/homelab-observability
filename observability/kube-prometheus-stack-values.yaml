@@ -50,6 +50,19 @@ grafana:
   grafana.ini:
     server:
       root_url: "http://192.168.1.153:30300"
+  sidecar:
+    datasources:
+      defaultDatasourceEnabled: false
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          uid: prometheus
+          url: http://prometheus-operated.observability.svc.cluster.local:9090
+          access: proxy
+          isDefault: true
   additionalDataSources:
     - name: Loki
       type: loki
