@@ -2,6 +2,9 @@ deploymentMode: SingleBinary
 
 loki:
   auth_enabled: false
+  server:
+    grpc_server_max_recv_msg_size: 16777216
+    grpc_server_max_send_msg_size: 16777216
   commonConfig:
     replication_factor: 1
   storage:
@@ -28,6 +31,12 @@ singleBinary:
   persistence:
     enabled: true
     size: 20Gi
+
+# Disable caches — not needed for single-binary homelab setup
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
 
 read:
   replicas: 0

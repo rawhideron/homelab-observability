@@ -3,36 +3,38 @@ replicaCount: 1
 
 image:
   repository: otel/opentelemetry-collector-contrib
-  tag: 0.103.0
+  tag: 0.147.0
 
-# hostNetwork binds directly to 192.168.1.153 — required for Kind clusters
-# since NodePort services are not reachable from external hosts on Kind
-hostNetwork: true
-dnsPolicy: ClusterFirstWithHostNet
+rollout:
+  strategy: Recreate
 
 resources:
   requests:
     memory: 128Mi
     cpu: 100m
   limits:
-    memory: 384Mi
+    memory: 768Mi
     cpu: 500m
+
+# Expose OTLP gRPC on a fixed NodePort so the host can DNAT to it
+service:
+  type: NodePort
 
 ports:
   otlp:
     enabled: true
     containerPort: 4317
     servicePort: 4317
+    nodePort: 30317
     protocol: TCP
   otlp-http:
     enabled: true
     containerPort: 4318
     servicePort: 4318
+    nodePort: 30318
     protocol: TCP
   metrics:
-    enabled: true
-    containerPort: 8888
-    servicePort: 8888
+    enabled: false
   jaeger-compact:
     enabled: false
   jaeger-thrift:
@@ -57,7 +59,7 @@ config:
       limit_percentage: 75
       spike_limit_percentage: 15
     batch:
-      send_batch_size: 8192
+      send_batch_size: 1024
       timeout: 200ms
     resource:
       attributes:
@@ -67,17 +69,17 @@ config:
 
   exporters:
     prometheusremotewrite:
-      endpoint: "http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/api/v1/write"
+      endpoint: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/api/v1/write
+      resource_to_telemetry_conversion:
+        enabled: true
       tls:
         insecure: true
-    loki:
-      endpoint: "http://loki.observability.svc.cluster.local:3100/loki/api/v1/push"
-      default_labels_enabled:
-        exporter: false
-        job: true
-        level: true
-    otlp/tempo:
-      endpoint: "tempo.observability.svc.cluster.local:4317"
+    otlphttp/loki:
+      endpoint: http://loki.observability.svc.cluster.local:3100/otlp
+      tls:
+        insecure: true
+    otlphttp/tempo:
+      endpoint: http://tempo.observability.svc.cluster.local:4318
       tls:
         insecure: true
 
@@ -87,6 +89,9 @@ config:
 
   service:
     extensions: [health_check]
+    telemetry:
+      metrics:
+        level: none
     pipelines:
       metrics:
         receivers: [otlp]
@@ -95,8 +100,8 @@ config:
       logs:
         receivers: [otlp]
         processors: [memory_limiter, batch, resource]
-        exporters: [loki]
+        exporters: [otlphttp/loki]
       traces:
         receivers: [otlp]
         processors: [memory_limiter, batch, resource]
-        exporters: [otlp/tempo]
+        exporters: [otlphttp/tempo]
