@@ -1,4 +1,7 @@
 prometheus:
+  service:
+    type: NodePort
+    nodePort: 30900
   prometheusSpec:
     retention: 15d
     retentionSize: "8GB"
@@ -19,6 +22,9 @@ prometheus:
               storage: 20Gi
 
 alertmanager:
+  service:
+    type: NodePort
+    nodePort: 30903
   alertmanagerSpec:
     resources:
       requests:
