@@ -1,0 +1,160 @@
+mode: daemonset
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: 0.103.0
+
+resources:
+  requests:
+    memory: 64Mi
+    cpu: 50m
+  limits:
+    memory: 128Mi
+    cpu: 200m
+
+extraVolumes:
+  - name: varlogpods
+    hostPath:
+      path: /var/log/pods
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+
+extraVolumeMounts:
+  - name: varlogpods
+    mountPath: /var/log/pods
+    readOnly: true
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+
+clusterRole:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: ["nodes", "nodes/metrics", "nodes/proxy", "pods", "namespaces", "services", "endpoints"]
+      verbs: ["get", "list", "watch"]
+
+# K8S_CLUSTER_NAME is overridden at install time per cluster
+extraEnvs:
+  - name: K8S_CLUSTER_NAME
+    value: "jan2026"
+  - name: K8S_NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+    kubeletstats:
+      collection_interval: 30s
+      auth_type: serviceAccount
+      endpoint: "https://${K8S_NODE_NAME}:10250"
+      insecure_skip_verify: true
+      metric_groups:
+        - node
+        - pod
+        - container
+
+    hostmetrics:
+      collection_interval: 30s
+      root_path: /
+      scrapers:
+        cpu: {}
+        memory: {}
+        disk: {}
+        filesystem:
+          exclude_mount_points:
+            mount_points: ["/dev", "/proc", "/sys", "/etc/hosts", "/etc/hostname", "/etc/resolv.conf", "/run/secrets"]
+            match_type: strict
+        network: {}
+        load: {}
+
+    filelog:
+      include:
+        - /var/log/pods/*/*/*.log
+      exclude:
+        - /var/log/pods/otel-agent_*/*/*.log
+      start_at: beginning
+      include_file_path: true
+      include_file_name: false
+      operators:
+        - type: container
+          id: container-parser
+
+  processors:
+    memory_limiter:
+      check_interval: 1s
+      limit_percentage: 75
+      spike_limit_percentage: 15
+    batch:
+      send_batch_size: 4096
+      timeout: 200ms
+    resource:
+      attributes:
+        - key: k8s.cluster.name
+          value: "${K8S_CLUSTER_NAME}"
+          action: upsert
+        - key: k8s.node.name
+          value: "${K8S_NODE_NAME}"
+          action: upsert
+    k8sattributes:
+      auth_type: serviceAccount
+      passthrough: false
+      filter:
+        node_from_env_var: K8S_NODE_NAME
+      extract:
+        metadata:
+          - k8s.pod.name
+          - k8s.pod.uid
+          - k8s.deployment.name
+          - k8s.namespace.name
+          - k8s.node.name
+          - k8s.pod.start_time
+      pod_association:
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.ip
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.uid
+        - sources:
+            - from: connection
+
+  exporters:
+    otlp:
+      endpoint: "192.168.1.153:4317"
+      tls:
+        insecure: true
+      retry_on_failure:
+        enabled: true
+        initial_interval: 5s
+        max_interval: 30s
+        max_elapsed_time: 300s
+
+  extensions:
+    health_check:
+      endpoint: 0.0.0.0:13133
+
+  service:
+    extensions: [health_check]
+    pipelines:
+      metrics:
+        receivers: [kubeletstats, hostmetrics, otlp]
+        processors: [memory_limiter, batch, resource, k8sattributes]
+        exporters: [otlp]
+      logs:
+        receivers: [filelog, otlp]
+        processors: [memory_limiter, batch, resource, k8sattributes]
+        exporters: [otlp]
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch, resource, k8sattributes]
+        exporters: [otlp]
