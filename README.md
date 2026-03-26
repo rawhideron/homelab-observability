@@ -15,21 +15,44 @@ Central observability platform for all homelab Kubernetes clusters. Metrics, log
 
 ## Architecture
 
-```
-192.168.1.230 (jan2026)   192.168.1.176 (zephyrus)
-OTel Agent DaemonSet       OTel Agent DaemonSet
-        |                          |
-        └──────── OTLP gRPC ───────┘
-                     |
-              192.168.1.153:4317
-              (iptables DNAT → NodePort 30317)
-                     |
-           OTel Gateway (hub cluster)
-           /           |           \
-    Prometheus       Loki         Tempo
-    (metrics)       (logs)       (traces)
-           \           |           /
-                  Grafana :30300
+```mermaid
+flowchart TD
+    subgraph jan2026["jan2026 — 192.168.1.230"]
+        A1[OTel Agent DaemonSet
+collects: metrics · logs · traces
+stamps: k8s.cluster.name=jan2026]
+    end
+
+    subgraph zephyrus["zephyrus — 192.168.1.176"]
+        A2[OTel Agent DaemonSet
+collects: metrics · logs · traces
+stamps: k8s.cluster.name=zephyrus]
+    end
+
+    subgraph hub["Hub — 192.168.1.153 · 4-node Kind · 8 GB RAM"]
+        GW[OTel Gateway
+receives OTLP gRPC :4317
+fans out by signal type]
+        PROM[Prometheus
+metrics storage]
+        LOKI[Loki
+log storage]
+        TEMPO[Tempo
+trace storage]
+        GRAF[Grafana :30300
+unified UI]
+    end
+
+    A1 -- OTLP gRPC --> NAT["192.168.1.153:4317
+iptables DNAT → NodePort 30317"]
+    A2 -- OTLP gRPC --> NAT
+    NAT --> GW
+    GW -- remote-write --> PROM
+    GW -- OTLP HTTP /otlp --> LOKI
+    GW -- OTLP HTTP :4318 --> TEMPO
+    PROM --> GRAF
+    LOKI --> GRAF
+    TEMPO --> GRAF
 ```
 
 ### Hub: 192.168.1.153 (rawhideron) — 4-node Kind cluster, 8GB RAM
