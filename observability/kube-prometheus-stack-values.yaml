@@ -60,7 +60,7 @@ grafana:
         - name: Prometheus
           type: prometheus
           uid: prometheus
-          url: http://prometheus-operated.observability.svc.cluster.local:9090
+          url: http://172.21.0.3:30900
           access: proxy
           isDefault: true
   additionalDataSources:
@@ -73,7 +73,7 @@ grafana:
         maxLines: 1000
     - name: Tempo
       type: tempo
-      url: http://tempo.observability.svc.cluster.local:3100
+      url: http://tempo.observability.svc.cluster.local:3200
       access: proxy
       isDefault: false
       jsonData:
