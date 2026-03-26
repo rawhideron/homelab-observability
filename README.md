@@ -72,6 +72,26 @@ kubectl port-forward svc/kube-prometheus-stack-prometheus \
 
 Open: http://192.168.1.153:9090
 
+**Example queries** (one at a time in the Query box):
+
+```promql
+# CPU usage % across all nodes
+100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+# Memory usage %
+(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100
+
+# Disk usage %
+(1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100
+
+# Kubernetes metrics from source clusters (OTel-forwarded)
+k8s_node_cpu_usage_nanocores{k8s_cluster_name="jan2026"}
+k8s_node_cpu_usage_nanocores{k8s_cluster_name="zephyrus"}
+
+# See all cluster names with data
+count by(k8s_cluster_name) (k8s_node_cpu_usage_nanocores)
+```
+
 ### Alertmanager (port-forward required)
 
 ```bash
