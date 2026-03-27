@@ -13,7 +13,7 @@ resources:
     memory: 128Mi
     cpu: 100m
   limits:
-    memory: 768Mi
+    memory: 1536Mi
     cpu: 500m
 
 # Expose OTLP gRPC on a fixed NodePort so the host can DNAT to it
@@ -74,11 +74,11 @@ config:
         enabled: true
       tls:
         insecure: true
-    otlphttp/loki:
+    otlp_http/loki:
       endpoint: http://loki.observability.svc.cluster.local:3100/otlp
       tls:
         insecure: true
-    otlphttp/tempo:
+    otlp_http/tempo:
       endpoint: http://tempo.observability.svc.cluster.local:4318
       tls:
         insecure: true
@@ -100,8 +100,8 @@ config:
       logs:
         receivers: [otlp]
         processors: [memory_limiter, batch, resource]
-        exporters: [otlphttp/loki]
+        exporters: [otlp_http/loki]
       traces:
         receivers: [otlp]
         processors: [memory_limiter, batch, resource]
-        exporters: [otlphttp/tempo]
+        exporters: [otlp_http/tempo]
