@@ -69,7 +69,7 @@ config:
 
   exporters:
     prometheusremotewrite:
-      endpoint: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/api/v1/write
+      endpoint: http://172.21.0.3:30900/api/v1/write
       resource_to_telemetry_conversion:
         enabled: true
       timeout: 60s
