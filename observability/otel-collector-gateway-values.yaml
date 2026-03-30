@@ -83,6 +83,9 @@ config:
       endpoint: http://tempo.observability.svc.cluster.local:4318
       tls:
         insecure: true
+      timeout: 10s
+      retry_on_failure:
+        enabled: false
 
   extensions:
     health_check:
