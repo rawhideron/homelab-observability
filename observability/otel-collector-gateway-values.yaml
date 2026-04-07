@@ -66,6 +66,7 @@ config:
         - key: k8s.cluster.name
           action: upsert
           from_attribute: k8s.cluster.name
+    sortmetrics: {}
 
   exporters:
     prometheusremotewrite:
@@ -99,7 +100,7 @@ config:
     pipelines:
       metrics:
         receivers: [otlp]
-        processors: [memory_limiter, batch, resource]
+        processors: [memory_limiter, sortmetrics, batch, resource]
         exporters: [prometheusremotewrite]
       logs:
         receivers: [otlp]
