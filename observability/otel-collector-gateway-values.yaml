@@ -66,11 +66,10 @@ config:
         - key: k8s.cluster.name
           action: upsert
           from_attribute: k8s.cluster.name
-    sortmetrics: {}
 
   exporters:
     prometheusremotewrite:
-      endpoint: http://172.21.0.3:30900/api/v1/write
+      endpoint: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/api/v1/write
       resource_to_telemetry_conversion:
         enabled: true
       timeout: 60s
@@ -100,7 +99,7 @@ config:
     pipelines:
       metrics:
         receivers: [otlp]
-        processors: [memory_limiter, sortmetrics, batch, resource]
+        processors: [memory_limiter, batch, resource]
         exporters: [prometheusremotewrite]
       logs:
         receivers: [otlp]

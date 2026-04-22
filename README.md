@@ -4,12 +4,12 @@
 ![Metrics](https://img.shields.io/badge/metrics-flowing-brightgreen)
 ![Logs](https://img.shields.io/badge/logs-flowing-brightgreen)
 ![Traces](https://img.shields.io/badge/traces-ready-blue)
-![Clusters](https://img.shields.io/badge/clusters-2-blue)
+![Clusters](https://img.shields.io/badge/clusters-3-blue)
 ![Grafana](https://img.shields.io/badge/grafana-10.x-orange)
 ![OTel](https://img.shields.io/badge/opentelemetry-0.147.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-Central observability platform for all homelab Kubernetes clusters. Metrics, logs, and traces from multiple clusters flow into a single Grafana instance on a dedicated hub machine.
+Central observability platform for all homelab Kubernetes clusters. Metrics, logs, and traces from multiple clusters now flow into a single Grafana instance on `192.168.1.176`, with `192.168.1.230`, `192.168.1.153`, and `192.168.1.176` acting as sources.
 
 ---
 
@@ -27,9 +27,7 @@ stamps: k8s.cluster.name=jan2026]
         A2[OTel Agent DaemonSet
 collects: metrics · logs · traces
 stamps: k8s.cluster.name=zephyrus]
-    end
 
-    subgraph hub["Hub — 192.168.1.153 · 4-node Kind · 8 GB RAM"]
         GW[OTel Gateway
 receives OTLP gRPC :4317
 fans out by signal type]
@@ -43,9 +41,16 @@ trace storage]
 unified UI]
     end
 
-    A1 -- OTLP gRPC --> NAT["192.168.1.153:4317
-iptables DNAT → NodePort 30317"]
+    subgraph rawhide["rawhideron — 192.168.1.153"]
+        A3[OTel Agent DaemonSet
+collects: metrics · logs · traces
+stamps: k8s.cluster.name=rawhideron]
+    end
+
+    A1 -- OTLP gRPC --> NAT["192.168.1.176:4317
+systemd TCP proxy → NodePort 30317"]
     A2 -- OTLP gRPC --> NAT
+    A3 -- OTLP gRPC --> NAT
     NAT --> GW
     GW -- remote-write --> PROM
     GW -- OTLP HTTP /otlp --> LOKI
@@ -55,21 +60,22 @@ iptables DNAT → NodePort 30317"]
     TEMPO --> GRAF
 ```
 
-### Hub: 192.168.1.153 (rawhideron) — 4-node Kind cluster, 8GB RAM
+### Hub: 192.168.1.176 (ron-goodman) — reunion Kind cluster
 
 | Component | Chart | Namespace | Status |
 |---|---|---|---|
-| OTel Collector (gateway) | open-telemetry/opentelemetry-collector | observability | ✅ Running |
-| Prometheus + Grafana | prometheus-community/kube-prometheus-stack | observability | ✅ Running |
-| Loki | grafana/loki | observability | ✅ Running |
-| Tempo | grafana/tempo | observability | ✅ Running |
+| OTel Collector (gateway) | open-telemetry/opentelemetry-collector | observability | Target state: running on `192.168.1.176` |
+| Prometheus + Grafana | prometheus-community/kube-prometheus-stack | observability | Target state: running on `192.168.1.176` |
+| Loki | grafana/loki | observability | Target state: running on `192.168.1.176` |
+| Tempo | grafana/tempo | observability | Target state: running on `192.168.1.176` |
 
 ### Source Clusters
 
 | Cluster | Host | Login | OTel Agent | ArgoCD |
 |---|---|---|---|---|
-| jan2026 | 192.168.1.230 | rongoodman | ✅ Running (4 pods) | https://goodmanreunion.duckdns.org/argocd |
-| zephyrus | 192.168.1.176 | ron-goodman | ✅ Running | — |
+| jan2026 | 192.168.1.230 | rongoodman | Enabled and exporting to `192.168.1.176` | https://goodmanreunion.duckdns.org/argocd |
+| rawhideron | 192.168.1.153 | rawhideron | Enabled and exporting to `192.168.1.176` | — |
+| zephyrus | 192.168.1.176 | ron-goodman | Enabled and exporting to `192.168.1.176` | — |
 
 ---
 
@@ -79,7 +85,7 @@ iptables DNAT → NodePort 30317"]
 
 | URL | Credentials |
 |---|---|
-| http://192.168.1.153:30300 | admin / changeme |
+| http://192.168.1.176:30300 | admin / changeme |
 
 Grafana has Prometheus, Loki, and Tempo pre-wired as datasources. This is the main
 interface for querying metrics, browsing logs, and viewing traces. Loki and Tempo
@@ -97,12 +103,12 @@ have no standalone UI — use Grafana for everything.
 ### Prometheus (port-forward required)
 
 ```bash
-# Run on 192.168.1.153
+# Run on 192.168.1.176
 kubectl port-forward svc/kube-prometheus-stack-prometheus \
   -n observability 9090:9090 --address 0.0.0.0
 ```
 
-Open: http://192.168.1.153:9090
+Open: http://192.168.1.176:9090
 
 **Example queries** (one at a time in the Query box):
 
@@ -118,6 +124,7 @@ Open: http://192.168.1.153:9090
 
 # Kubernetes metrics from source clusters (OTel-forwarded)
 k8s_node_cpu_usage_nanocores{k8s_cluster_name="jan2026"}
+k8s_node_cpu_usage_nanocores{k8s_cluster_name="rawhideron"}
 k8s_node_cpu_usage_nanocores{k8s_cluster_name="zephyrus"}
 
 # See all cluster names with data
@@ -131,7 +138,7 @@ kubectl port-forward svc/kube-prometheus-stack-alertmanager \
   -n observability 9093:9093 --address 0.0.0.0
 ```
 
-Open: http://192.168.1.153:9093
+Open: http://192.168.1.176:9093
 
 ### Loki (API only)
 
@@ -139,7 +146,7 @@ Open: http://192.168.1.153:9093
 kubectl port-forward svc/loki -n observability 3100:3100 --address 0.0.0.0
 ```
 
-Open: http://192.168.1.153:3100
+Open: http://192.168.1.176:3100
 
 ---
 
@@ -181,10 +188,10 @@ label_values(k8s_namespace_name{k8s_cluster_name="$cluster"}, k8s_namespace_name
 - `kubectl`, `helm` installed
 - Helm repos added (see commands below)
 
-### Hub (192.168.1.153)
+### Hub (192.168.1.176)
 
 ```bash
-cd /home/rawhideron/Projects/homelab-observability
+cd /home/ron-goodman/Projects/homelab-observability
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
@@ -206,9 +213,12 @@ helm upgrade --install otel-gateway open-telemetry/opentelemetry-collector \
   -n observability --values observability/otel-collector-gateway-values.yaml --wait --timeout 3m
 ```
 
-Then configure the iptables DNAT to forward `192.168.1.153:4317` to the gateway NodePort:
+Then install the host-side `otel-forward` service so `192.168.1.176:4317`, `:30300`, `:9090`, and `:9093` are forwarded into the Kind cluster across reboots:
 
 ```bash
+sudo install -m 0755 observability/otel-forward.py /usr/local/bin/otel-forward.py
+sudo install -m 0644 observability/otel-forward.service /etc/systemd/system/otel-forward.service
+sudo systemctl daemon-reload
 sudo systemctl enable --now otel-forward
 ```
 
@@ -236,6 +246,18 @@ helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
   --set "extraEnvs[0].value=zephyrus" --wait --timeout 3m
 ```
 
+### Source cluster: rawhideron (192.168.1.153)
+
+```bash
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo update
+kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f -
+helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
+  -n otel-agent \
+  --values observability/otel-collector-agent-values.yaml \
+  --set "extraEnvs[0].value=rawhideron" --wait --timeout 3m
+```
+
 ---
 
 ## Repository Structure
@@ -245,12 +267,15 @@ homelab-observability/
 ├── observability/
 │   ├── otel-collector-gateway-values.yaml   # Hub OTel gateway (deployment)
 │   ├── otel-collector-agent-values.yaml     # Source cluster agents (DaemonSet)
+│   ├── otel-forward.py                      # Host-side TCP proxy for Kind NodePorts
+│   ├── otel-forward.service                 # systemd unit for the host-side proxy
 │   ├── kube-prometheus-stack-values.yaml    # Prometheus + Grafana
 │   ├── loki-values.yaml                     # Log storage
 │   └── tempo-values.yaml                    # Trace storage
 └── docs/
     ├── observability-plan.md                # Original design plan
-    └── access-guide.md                      # UI access reference
+    ├── access-guide.md                      # UI access reference
+    └── rebuild-guide.md                     # Recreate the hub and agents
 ```
 
 ---
@@ -269,9 +294,9 @@ homelab-observability/
 
 ## Networking Notes
 
-Kind nodes run as Docker containers on an internal bridge (172.21.x.x), not directly
+Kind nodes run as Docker containers on an internal bridge (172.18.x.x), not directly
 reachable from other LAN machines. The hub exposes the OTel gateway via:
 
-1. **NodePort 30317** on Kind node `kind-worker2` (172.21.0.5)
-2. **iptables DNAT** on the host: `192.168.1.153:4317 → 172.21.0.5:30317`
-3. **systemd service** `otel-forward` manages the DNAT rule across reboots
+1. **NodePort 30317** on Kind node container `reunion-worker2` (resolved dynamically at service start)
+2. **Host TCP proxy** on `192.168.1.176` forwards `:4317`, `:30300`, `:9090`, and `:9093` to the active Kind node IP
+3. **systemd service** `otel-forward` keeps the forwarding in place across reboots

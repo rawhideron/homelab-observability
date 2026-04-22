@@ -1,12 +1,12 @@
 # Observability Stack — Access Guide
 
-## Hub: 192.168.1.153
+## Hub: 192.168.1.176
 
 ### Grafana (always accessible)
 
 | URL | Credentials |
 |-----|-------------|
-| http://192.168.1.153:30300 | admin / changeme |
+| http://192.168.1.176:30300 | admin / changeme |
 
 Grafana is the primary UI for all observability data. Prometheus, Loki, and Tempo
 are pre-wired as datasources. Loki and Tempo have no standalone UI.
@@ -15,13 +15,13 @@ are pre-wired as datasources. Loki and Tempo have no standalone UI.
 
 | URL | Notes |
 |-----|-------|
-| http://192.168.1.153:9090 | NodePort 30900 |
+| http://192.168.1.176:9090 | NodePort 30900 |
 
 ### Alertmanager (always accessible)
 
 | URL | Notes |
 |-----|-------|
-| http://192.168.1.153:9093 | NodePort 30903 |
+| http://192.168.1.176:9093 | NodePort 30903 |
 
 ### Loki (API only — use Grafana instead)
 
@@ -29,20 +29,20 @@ are pre-wired as datasources. Loki and Tempo have no standalone UI.
 kubectl port-forward svc/loki -n observability 3100:3100 --address 0.0.0.0
 ```
 
-Then open: http://192.168.1.153:3100
+Then open: http://192.168.1.176:3100
 
 ---
 
 ## Networking Notes (Kind-specific)
 
-Kind nodes run as Docker containers on an internal bridge (172.21.x.x). NodePorts
-are accessible from within the cluster using the node container IPs:
+Kind nodes run as Docker containers on an internal bridge (172.18.x.x). The host-side
+`otel-forward` service resolves the active `reunion-worker2` container IP at startup
+and forwards the public observability ports into the Kind cluster:
 
 | Node | IP | Services |
 |---|---|---|
-| kind-worker | 172.21.0.3 | Prometheus (30900), Alertmanager (30903) |
-| kind-worker2 | 172.21.0.5 | OTel Gateway (30317), Grafana (30300) |
-| kind-worker3 | 172.21.0.2 | — |
+| reunion-worker2 | 172.18.0.2 | Prometheus (30900), Grafana (30300), Alertmanager (30903), OTel Gateway (30317) |
+| reunion-control-plane | 172.18.0.4 | Ingress and cluster control plane |
 
 Cross-node pod-to-pod networking (CNI) is not fully functional in this setup.
 Datasources use NodePort or ClusterIP-routed endpoints to work around this.
@@ -55,7 +55,7 @@ Datasources use NodePort or ClusterIP-routed endpoints to work around this.
 
 | Datasource | URL | Status |
 |---|---|---|
-| Prometheus | http://172.21.0.3:30900 | ✅ Connected |
+| Prometheus | http://192.168.1.176:9090 | ✅ Forwarded by `otel-forward` |
 | Loki | http://loki.observability.svc.cluster.local:3100 | ✅ Connected |
 | Tempo | http://tempo.observability.svc.cluster.local:3200 | ✅ Connected |
 
@@ -78,7 +78,7 @@ To filter dashboards by source cluster, create a variable:
 - Data source: Prometheus
 - Query: `label_values(k8s_node_cpu_usage, k8s_cluster_name)`
 
-This lets you toggle between `jan2026` (192.168.1.230) and `zephyrus` (192.168.1.176).
+This lets you toggle between `jan2026` (192.168.1.230), `rawhideron` (192.168.1.153), and `zephyrus` (192.168.1.176).
 
 ---
 
@@ -87,6 +87,7 @@ This lets you toggle between `jan2026` (192.168.1.230) and `zephyrus` (192.168.1
 | Cluster | Host | Login | ArgoCD UI |
 |---|---|---|---|
 | jan2026 | 192.168.1.230 | rongoodman | https://goodmanreunion.duckdns.org/argocd |
+| rawhideron | 192.168.1.153 | rawhideron | — |
 | zephyrus | 192.168.1.176 | ron-goodman | — |
 
 ---
@@ -94,18 +95,18 @@ This lets you toggle between `jan2026` (192.168.1.230) and `zephyrus` (192.168.1
 ## Architecture Summary
 
 ```
-192.168.1.230 (jan2026)   192.168.1.176 (zephyrus)
-OTel Agent DaemonSet       OTel Agent DaemonSet
-        |                          |
-        └──────── OTLP gRPC ───────┘
-                     |
-              192.168.1.153:4317
-              (iptables DNAT → NodePort 30317)
-                     |
-           OTel Gateway (hub cluster)
-           /           |           \
-    Prometheus       Loki         Tempo
-    (metrics)       (logs)       (traces)
-           \           |           /
-                  Grafana :30300
+192.168.1.230 (jan2026)   192.168.1.153 (rawhideron)   192.168.1.176 (zephyrus)
+OTel Agent DaemonSet      OTel Agent DaemonSet         OTel Agent DaemonSet
+        \                         |                          /
+         \________________ OTLP gRPC _______________________/
+                              |
+                       192.168.1.176:4317
+                 (systemd TCP proxy → NodePort 30317)
+                              |
+                    OTel Gateway (hub cluster)
+                    /           |           \
+             Prometheus       Loki         Tempo
+             (metrics)       (logs)       (traces)
+                    \           |           /
+                           Grafana :30300
 ```

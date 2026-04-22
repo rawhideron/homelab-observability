@@ -1,0 +1,14 @@
+[Unit]
+Description=Forward observability host ports to Kind cluster NodePorts
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+Environment=NODE_CONTAINER=reunion-worker2
+ExecStart=/usr/local/bin/otel-forward.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

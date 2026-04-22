@@ -6,6 +6,8 @@ prometheus:
     retention: 15d
     retentionSize: "8GB"
     enableRemoteWriteReceiver: true
+    externalLabels:
+      k8s_cluster_name: zephyrus
     resources:
       requests:
         memory: 512Mi
@@ -49,7 +51,7 @@ grafana:
     nodePort: 30300
   grafana.ini:
     server:
-      root_url: "http://192.168.1.153:30300"
+      root_url: "http://192.168.1.176:30300"
   sidecar:
     datasources:
       defaultDatasourceEnabled: false
@@ -60,7 +62,7 @@ grafana:
         - name: Prometheus
           type: prometheus
           uid: prometheus
-          url: http://172.21.0.3:30900
+          url: http://172.18.0.5:30900
           access: proxy
           isDefault: true
   additionalDataSources:
@@ -104,6 +106,34 @@ nodeExporter:
       memory: 64Mi
       cpu: 100m
 
+prometheus-node-exporter:
+  prometheus:
+    monitor:
+      metricRelabelings:
+        - targetLabel: k8s_cluster_name
+          replacement: zephyrus
+
+kubelet:
+  serviceMonitor:
+    metricRelabelings:
+      - action: drop
+        sourceLabels: [__name__, le]
+        regex: (csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?
+      - targetLabel: k8s_cluster_name
+        replacement: zephyrus
+    cAdvisorMetricRelabelings:
+      - action: drop
+        regex: container_cpu_(cfs_throttled_seconds_total|load_average_10s|system_seconds_total|user_seconds_total)
+        sourceLabels: [__name__]
+      - action: drop
+        regex: container_fs_(io_current|io_time_seconds_total|io_time_weighted_seconds_total|reads_merged_total|sector_reads_total|sector_writes_total|writes_merged_total)
+        sourceLabels: [__name__]
+      - action: drop
+        regex: container_memory_(mapped_file|swap)
+        sourceLabels: [__name__]
+      - targetLabel: k8s_cluster_name
+        replacement: zephyrus
+
 kube-state-metrics:
   resources:
     requests:
@@ -112,6 +142,11 @@ kube-state-metrics:
     limits:
       memory: 128Mi
       cpu: 100m
+  prometheus:
+    monitor:
+      metricRelabelings:
+        - targetLabel: k8s_cluster_name
+          replacement: zephyrus
 
 # Kind clusters don't expose these endpoints
 kubeControllerManager:

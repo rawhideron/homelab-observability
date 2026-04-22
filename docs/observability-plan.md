@@ -1,28 +1,29 @@
 # Homelab Observability Hub
 
-Central observability platform running on 192.168.1.153, collecting metrics, logs, and traces from all homelab Kubernetes clusters.
+Central observability platform running on 192.168.1.176, collecting metrics, logs, and traces from all homelab Kubernetes clusters.
 
 ## Architecture
 
-- **Hub (192.168.1.153):** OTel Collector gateway + Prometheus + Grafana + Loki + Tempo
-- **Source clusters:** OTel agents (DaemonSet) ship to hub at 192.168.1.153:4317
+- **Hub (192.168.1.176):** OTel Collector gateway + Prometheus + Grafana + Loki + Tempo
+- **Source clusters:** OTel agents (DaemonSet) ship to hub at 192.168.1.176:4317
 
 | Cluster | Host | OTel cluster.name |
 |---|---|---|
 | jan2026 | 192.168.1.230 | jan2026 |
+| rawhideron | 192.168.1.153 | rawhideron |
 | zephyrus | 192.168.1.176 | zephyrus |
 
 ## Grafana
 
-URL: http://192.168.1.153:30300  
+URL: http://192.168.1.176:30300  
 Default login: admin / changeme
 
 ## Install Commands
 
-### Hub (192.168.1.153 — rawhideron)
+### Hub (192.168.1.176 — ron-goodman)
 
 ```bash
-cd /home/rawhideron/Projects/homelab-observability
+cd /home/ron-goodman/Projects/homelab-observability
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
@@ -53,10 +54,18 @@ kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f 
 helm upgrade --install otel-agent open-telemetry/opentelemetry-collector -n otel-agent   --values observability/otel-collector-agent-values.yaml   --set "extraEnvs[0].value=zephyrus" --wait --timeout 3m
 ```
 
+### Source: rawhideron (192.168.1.153 — rawhideron)
+
+```bash
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts && helm repo update
+kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f -
+helm upgrade --install otel-agent open-telemetry/opentelemetry-collector -n otel-agent   --values observability/otel-collector-agent-values.yaml   --set "extraEnvs[0].value=rawhideron" --wait --timeout 3m
+```
+
 ## Querying in Grafana
 
 Filter by cluster and namespace using variables:
-- `label_values(k8s_cluster_name)` → jan2026 or zephyrus
+- `label_values(k8s_cluster_name)` → jan2026, rawhideron, or zephyrus
 - `label_values(k8s_namespace_name{k8s_cluster_name="$cluster"})` → reunion, n8n-rag, etc.
 
 ## Recommended Dashboard IDs
