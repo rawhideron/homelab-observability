@@ -6,6 +6,8 @@ prometheus:
     retention: 15d
     retentionSize: "8GB"
     enableRemoteWriteReceiver: true
+    tsdb:
+      outOfOrderTimeWindow: 10m
     externalLabels:
       k8s_cluster_name: zephyrus
     resources:
