@@ -1,0 +1,66 @@
+receivers:
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu: {}
+      memory: {}
+      disk: {}
+      filesystem:
+        exclude_mount_points:
+          mount_points: ["/dev", "/proc", "/sys", "/run"]
+          match_type: strict
+      network: {}
+      load: {}
+
+  journald:
+    directory: /run/log/journal
+    units: []
+    priority: info
+    operators:
+      - type: move
+        from: attributes.MESSAGE
+        to: body
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 15
+  batch:
+    send_batch_size: 4096
+    timeout: 200ms
+  resource:
+    attributes:
+      - key: host.name
+        value: "${HOSTNAME}"
+        action: upsert
+      - key: host.ip
+        value: "192.168.1.230"
+        action: upsert
+
+exporters:
+  otlp_grpc:
+    endpoint: "192.168.1.176:4317"
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlp_grpc]
+    logs:
+      receivers: [journald]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlp_grpc]

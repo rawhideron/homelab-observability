@@ -1,0 +1,13 @@
+[Unit]
+Description=OpenTelemetry Collector host agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/otelcol-contrib --config /etc/otelcol-contrib/config.yaml
+Restart=always
+RestartSec=5
+Environment=HOSTNAME=%H
+
+[Install]
+WantedBy=multi-user.target
