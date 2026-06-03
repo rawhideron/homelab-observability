@@ -258,6 +258,55 @@ helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
   --set "extraEnvs[0].value=rawhideron" --wait --timeout 3m
 ```
 
+### Adding a bare-metal or VM host
+
+Use this for any machine that is not running a Kubernetes cluster — it installs a
+standalone `otelcol-contrib` agent that collects host metrics and journald logs and
+ships them to the hub gateway at `192.168.1.176:4317`.
+
+**1. Copy the host-agent files to the target machine:**
+
+```bash
+scp -r observability/host-agent <user>@<host-ip>:/tmp/host-agent
+```
+
+**2. Run the installer on the target machine:**
+
+```bash
+ssh <user>@<host-ip> "bash /tmp/host-agent/install.sh"
+```
+
+The installer will:
+- Download `otelcol-contrib` 0.147.0 to `/usr/local/bin/`
+- Install the config to `/etc/otelcol-contrib/config.yaml`
+- Install and enable the `otel-collector` systemd service
+
+**3. Verify it is running:**
+
+```bash
+ssh <user>@<host-ip> "systemctl is-active otel-collector"
+```
+
+**4. Confirm metrics are reaching Prometheus** (run on 192.168.1.176):
+
+```bash
+kubectl exec -n observability prometheus-kube-prometheus-stack-prometheus-0 -c prometheus -- \
+  promtool query instant http://localhost:9090 \
+  'system_cpu_time_seconds_total{host_name="<hostname>"}'
+```
+
+**Collected signals:**
+
+| Signal | Receiver | Detail |
+|---|---|---|
+| Metrics | `hostmetrics` | CPU, memory, disk, filesystem, network, load — 30 s interval |
+| Logs | `journald` | All units, priority info and above |
+
+Metrics land in Prometheus tagged with `host_name` (machine hostname) and
+`host_ip` (set to the machine's LAN IP in the config file). Update the
+`host.ip` value in `otel-collector-config.yaml` before deploying if the
+default (`192.168.1.230`) does not match your target host.
+
 ---
 
 ## Repository Structure
@@ -271,7 +320,11 @@ homelab-observability/
 │   ├── otel-forward.service                 # systemd unit for the host-side proxy
 │   ├── kube-prometheus-stack-values.yaml    # Prometheus + Grafana
 │   ├── loki-values.yaml                     # Log storage
-│   └── tempo-values.yaml                    # Trace storage
+│   ├── tempo-values.yaml                    # Trace storage
+│   └── host-agent/                          # Standalone agent for bare-metal/VM hosts
+│       ├── otel-collector-config.yaml       # Collector config (hostmetrics + journald)
+│       ├── otel-collector.service           # systemd unit
+│       └── install.sh                       # Installer script
 └── docs/
     ├── observability-plan.md                # Original design plan
     ├── access-guide.md                      # UI access reference
