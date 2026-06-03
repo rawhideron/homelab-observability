@@ -29,14 +29,15 @@ processors:
   batch:
     send_batch_size: 4096
     timeout: 200ms
-  resource:
-    attributes:
-      - key: host.name
-        value: "${HOSTNAME}"
-        action: upsert
-      - key: host.ip
-        value: "192.168.1.230"
-        action: upsert
+  resourcedetection:
+    detectors: [system]
+    system:
+      hostname_sources: [os]
+      resource_attributes:
+        host.name:
+          enabled: true
+        host.ip:
+          enabled: true
 
 exporters:
   otlp_grpc:
@@ -58,9 +59,9 @@ service:
   pipelines:
     metrics:
       receivers: [hostmetrics]
-      processors: [memory_limiter, batch, resource]
+      processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlp_grpc]
     logs:
       receivers: [journald]
-      processors: [memory_limiter, batch, resource]
+      processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlp_grpc]

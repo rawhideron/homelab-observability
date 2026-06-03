@@ -302,10 +302,9 @@ kubectl exec -n observability prometheus-kube-prometheus-stack-prometheus-0 -c p
 | Metrics | `hostmetrics` | CPU, memory, disk, filesystem, network, load — 30 s interval |
 | Logs | `journald` | All units, priority info and above |
 
-Metrics land in Prometheus tagged with `host_name` (machine hostname) and
-`host_ip` (set to the machine's LAN IP in the config file). Update the
-`host.ip` value in `otel-collector-config.yaml` before deploying if the
-default (`192.168.1.230`) does not match your target host.
+Metrics land in Prometheus tagged with `host_name` and `host_ip`, both
+auto-detected from the OS at runtime via the `resourcedetection` processor.
+No edits to the config are needed before deploying to a new host.
 
 ---
 
