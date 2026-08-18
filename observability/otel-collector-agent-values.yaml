@@ -2,7 +2,7 @@ mode: daemonset
 
 image:
   repository: otel/opentelemetry-collector-contrib
-  tag: 0.147.0
+  tag: 0.149.0
 
 
 ports:
