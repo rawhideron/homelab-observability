@@ -9,7 +9,7 @@
 ![OTel](https://img.shields.io/badge/opentelemetry-0.147.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-Central observability platform for all homelab Kubernetes clusters. Metrics, logs, and traces from multiple clusters now flow into a single Grafana instance on `192.168.1.176`, with `192.168.1.230`, `192.168.1.153`, and `192.168.1.176` acting as sources.
+Central observability platform for all homelab Kubernetes clusters. Metrics, logs, and traces from multiple clusters now flow into a single Grafana instance on `192.168.1.176`, with `192.168.1.230`, `192.168.1.177`, and `192.168.1.176` acting as sources.
 
 ---
 
@@ -41,7 +41,7 @@ trace storage]
 unified UI]
     end
 
-    subgraph rawhide["rawhideron — 192.168.1.153"]
+    subgraph rawhide["rawhideron — 192.168.1.177"]
         A3[OTel Agent DaemonSet
 collects: metrics · logs · traces
 stamps: k8s.cluster.name=rawhideron]
@@ -74,7 +74,7 @@ systemd TCP proxy → NodePort 30317"]
 | Cluster | Host | Login | OTel Agent | ArgoCD |
 |---|---|---|---|---|
 | jan2026 | 192.168.1.230 | rongoodman | Enabled and exporting to `192.168.1.176` | https://goodmanreunion.duckdns.org/argocd |
-| rawhideron | 192.168.1.153 | rawhideron | Enabled and exporting to `192.168.1.176` | — |
+| rawhideron | 192.168.1.177 | rawhideron | Enabled and exporting to `192.168.1.176` | — |
 | zephyrus | 192.168.1.176 | ron-goodman | Enabled and exporting to `192.168.1.176` | — |
 
 ---
@@ -239,7 +239,7 @@ helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
   --set "extraEnvs[0].value=zephyrus" --wait --timeout 3m
 ```
 
-### Source cluster: rawhideron (192.168.1.153)
+### Source cluster: rawhideron (192.168.1.177)
 
 ```bash
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts

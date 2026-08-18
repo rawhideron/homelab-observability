@@ -10,7 +10,7 @@ Central observability platform running on 192.168.1.176, collecting metrics, log
 | Cluster | Host | OTel cluster.name |
 |---|---|---|
 | jan2026 | 192.168.1.230 | jan2026 |
-| rawhideron | 192.168.1.153 | rawhideron |
+| rawhideron | 192.168.1.177 | rawhideron |
 | zephyrus | 192.168.1.176 | zephyrus |
 
 ## Grafana
@@ -54,7 +54,7 @@ kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f 
 helm upgrade --install otel-agent open-telemetry/opentelemetry-collector -n otel-agent   --values observability/otel-collector-agent-values.yaml   --set "extraEnvs[0].value=zephyrus" --wait --timeout 3m
 ```
 
-### Source: rawhideron (192.168.1.153 — rawhideron)
+### Source: rawhideron (192.168.1.177 — rawhideron)
 
 ```bash
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts && helm repo update
