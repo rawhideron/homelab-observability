@@ -94,7 +94,7 @@ config:
         network: {}
         load: {}
 
-    filelog:
+    file_log:
       include:
         - /var/log/pods/*/*/*.log
       exclude:
@@ -122,7 +122,7 @@ config:
         - key: k8s.node.name
           value: "${K8S_NODE_NAME}"
           action: upsert
-    k8sattributes:
+    k8s_attributes:
       auth_type: serviceAccount
       passthrough: false
       filter:
@@ -165,13 +165,13 @@ config:
     pipelines:
       metrics:
         receivers: [kubeletstats, hostmetrics, otlp]
-        processors: [memory_limiter, batch, resource, k8sattributes]
+        processors: [memory_limiter, batch, resource, k8s_attributes]
         exporters: [otlp]
       logs:
-        receivers: [filelog, otlp]
-        processors: [memory_limiter, batch, resource, k8sattributes]
+        receivers: [file_log, otlp]
+        processors: [memory_limiter, batch, resource, k8s_attributes]
         exporters: [otlp]
       traces:
         receivers: [otlp]
-        processors: [memory_limiter, batch, resource, k8sattributes]
+        processors: [memory_limiter, batch, resource, k8s_attributes]
         exporters: [otlp]
