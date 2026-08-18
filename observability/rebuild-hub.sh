@@ -41,6 +41,7 @@ helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheu
   --wait --timeout 10m
 
 helm upgrade --install otel-gateway open-telemetry/opentelemetry-collector \
+  --version 0.150.1 \
   -n "${NAMESPACE}" \
   --values "${REPO_ROOT}/observability/otel-collector-gateway-values.yaml" \
   --wait --timeout 5m
