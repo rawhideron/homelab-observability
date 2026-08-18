@@ -2,6 +2,13 @@
 
 Central observability platform running on 192.168.1.176, collecting metrics, logs, and traces from all homelab Kubernetes clusters.
 
+## Component Versions
+
+| Component | Chart | Image |
+|---|---|---|
+| OTel Collector (gateway + agents) | opentelemetry-collector 0.150.1 | otel/opentelemetry-collector-contrib:0.149.0 |
+| otelcol-contrib (host-agent) | — | 0.149.0 |
+
 ## Architecture
 
 - **Hub (192.168.1.176):** OTel Collector gateway + Prometheus + Grafana + Loki + Tempo

@@ -33,6 +33,7 @@ helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm
 helm repo update
 kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f -
 helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
+  --version 0.150.1 \
   -n otel-agent \
   --values observability/otel-collector-agent-values.yaml \
   --set "extraEnvs[0].value=jan2026" \
@@ -46,6 +47,7 @@ helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm
 helm repo update
 kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f -
 helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
+  --version 0.150.1 \
   -n otel-agent \
   --values observability/otel-collector-agent-values.yaml \
   --set "extraEnvs[0].value=rawhideron" \
@@ -59,6 +61,7 @@ helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm
 helm repo update
 kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f -
 helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
+  --version 0.150.1 \
   -n otel-agent \
   --values observability/otel-collector-agent-values.yaml \
   --set "extraEnvs[0].value=zephyrus" \
