@@ -270,7 +270,7 @@ ssh <user>@<host-ip> "bash /tmp/host-agent/install.sh"
 ```
 
 The installer will:
-- Download `otelcol-contrib` 0.147.0 to `/usr/local/bin/`
+- Download `otelcol-contrib` 0.149.0 to `/usr/local/bin/`
 - Install the config to `/etc/otelcol-contrib/config.yaml`
 - Install and enable the `otel-collector` systemd service
 
