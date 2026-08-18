@@ -100,15 +100,11 @@ have no standalone UI — use Grafana for everything.
 | 15141 | Loki Kubernetes Logs | Loki | Browse and search container logs by namespace, pod, and stream |
 
 
-### Prometheus (port-forward required)
-
-```bash
-# Run on 192.168.1.176
-kubectl port-forward svc/kube-prometheus-stack-prometheus \
-  -n observability 9090:9090 --address 0.0.0.0
-```
+### Prometheus (always accessible)
 
 Open: http://192.168.1.176:9090
+
+Forwarded by the `otel-forward` systemd proxy (NodePort 30900 → host port 9090).
 
 **Example queries** (one at a time in the Query box):
 
@@ -131,14 +127,11 @@ k8s_node_cpu_usage_nanocores{k8s_cluster_name="zephyrus"}
 count by(k8s_cluster_name) (k8s_node_cpu_usage_nanocores)
 ```
 
-### Alertmanager (port-forward required)
-
-```bash
-kubectl port-forward svc/kube-prometheus-stack-alertmanager \
-  -n observability 9093:9093 --address 0.0.0.0
-```
+### Alertmanager (always accessible)
 
 Open: http://192.168.1.176:9093
+
+Forwarded by the `otel-forward` systemd proxy (NodePort 30903 → host port 9093).
 
 ### Loki (API only)
 
