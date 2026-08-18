@@ -6,7 +6,7 @@
 ![Traces](https://img.shields.io/badge/traces-ready-blue)
 ![Clusters](https://img.shields.io/badge/clusters-3-blue)
 ![Grafana](https://img.shields.io/badge/grafana-10.x-orange)
-![OTel](https://img.shields.io/badge/opentelemetry-0.147.0-blue)
+![OTel](https://img.shields.io/badge/opentelemetry-0.149.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Central observability platform for all homelab Kubernetes clusters. Metrics, logs, and traces from multiple clusters now flow into a single Grafana instance on `192.168.1.176`, with `192.168.1.230`, `192.168.1.177`, and `192.168.1.176` acting as sources.
