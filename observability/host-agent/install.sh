@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OTEL_VERSION="0.147.0"
+OTEL_VERSION="0.149.0"
 INSTALL_BIN="/usr/local/bin/otelcol-contrib"
 CONFIG_DIR="/etc/otelcol-contrib"
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
