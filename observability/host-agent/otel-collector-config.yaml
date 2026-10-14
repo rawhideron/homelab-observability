@@ -13,7 +13,6 @@ receivers:
       load: {}
 
   journald:
-    directory: /run/log/journal
     units: []
     priority: info
     operators:
