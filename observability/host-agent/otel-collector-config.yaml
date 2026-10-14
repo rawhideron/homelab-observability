@@ -16,8 +16,14 @@ receivers:
     units: []
     priority: info
     operators:
+      # journald puts the whole record in the body; keep its fields as
+      # attributes and make the message text the body
       - type: move
-        from: attributes.MESSAGE
+        from: body
+        to: attributes.journald
+      - type: move
+        if: 'attributes.journald.MESSAGE != nil'
+        from: attributes.journald.MESSAGE
         to: body
 
 processors:
