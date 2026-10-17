@@ -41,6 +41,12 @@ alertmanager:
 grafana:
   enabled: true
   adminPassword: "changeme"
+  persistence:
+    enabled: true
+    type: pvc
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
   resources:
     requests:
       memory: 128Mi
