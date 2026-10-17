@@ -47,10 +47,11 @@ jobs:
       - name: Syntax check
         run: python3 -m py_compile observability/otel-forward.py
       - name: Lint (ruff)
-        # Select only pyflakes (F) and pycodestyle errors/warnings (E, W);
-        # skip style rules (import sorting, executable bit, broad-except) that
-        # are intentional choices in this script.
-        run: ruff check --select E,F,W observability/otel-forward.py
+        # Select pyflakes (F) and pycodestyle errors/warnings (E, W).
+        # Line-length set to 100 to match the existing code style.
+        # Import sorting, executable-bit, and broad-except rules are
+        # intentional choices in this script and are not selected.
+        run: ruff check --select E,F,W --line-length 100 observability/otel-forward.py
 
   # ── Shell scripts ────────────────────────────────────────────────────────────
   lint-shell:
