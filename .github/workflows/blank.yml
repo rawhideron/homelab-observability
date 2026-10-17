@@ -31,9 +31,7 @@ jobs:
             observability/loki-values.yaml \
             observability/tempo-values.yaml \
             observability/kube-prometheus-stack-values.yaml \
-            observability/host-agent/otel-collector-config.yaml \
-            observability/host-agent/otel-collector.service \
-            observability/otel-forward.service
+            observability/host-agent/otel-collector-config.yaml
 
   # ── Python ───────────────────────────────────────────────────────────────────
   lint-python:
@@ -49,7 +47,10 @@ jobs:
       - name: Syntax check
         run: python3 -m py_compile observability/otel-forward.py
       - name: Lint (ruff)
-        run: ruff check observability/otel-forward.py
+        # Select only pyflakes (F) and pycodestyle errors/warnings (E, W);
+        # skip style rules (import sorting, executable bit, broad-except) that
+        # are intentional choices in this script.
+        run: ruff check --select E,F,W observability/otel-forward.py
 
   # ── Shell scripts ────────────────────────────────────────────────────────────
   lint-shell:
