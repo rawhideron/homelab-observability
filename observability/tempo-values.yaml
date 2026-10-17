@@ -1,5 +1,13 @@
 tempo:
   reportingEnabled: false
+  # The chart's default 1 GiB ballast fights the 1 GiB limit. Instead, GOMEMLIMIT
+  # makes the Go GC work harder near the limit rather than letting Tempo stall
+  # and get killed by its liveness probe. The host has little free memory, so
+  # the limit stays at 1Gi.
+  memBallastSizeMbs: 0
+  extraEnv:
+    - name: GOMEMLIMIT
+      value: "900MiB"
   resources:
     requests:
       memory: 512Mi
