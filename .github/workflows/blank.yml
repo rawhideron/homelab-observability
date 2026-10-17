@@ -1,36 +1,159 @@
-# This is a basic workflow to help you get started with Actions
-
 name: CI
 
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "master" branch
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
-
-  # Allows you to run this workflow manually from the Actions tab
+    branches: ["master"]
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
+  # ── YAML lint ────────────────────────────────────────────────────────────────
+  lint-yaml:
+    name: YAML lint
+    runs-on: ubuntu-latest
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+      - name: Install yamllint
+        run: pip install yamllint
+      - name: Lint all YAML files
+        run: |
+          yamllint -d '{
+            extends: relaxed,
+            rules: {
+              line-length: {max: 140},
+              truthy: {allowed-values: ["true", "false"]}
+            }
+          }' \
+            observability/otel-collector-gateway-values.yaml \
+            observability/otel-collector-agent-values.yaml \
+            observability/loki-values.yaml \
+            observability/tempo-values.yaml \
+            observability/kube-prometheus-stack-values.yaml \
+            observability/host-agent/otel-collector-config.yaml \
+            observability/host-agent/otel-collector.service \
+            observability/otel-forward.service
+
+  # ── Python ───────────────────────────────────────────────────────────────────
+  lint-python:
+    name: Python lint & syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Syntax check
+        run: python3 -m py_compile observability/otel-forward.py
+      - name: Lint (ruff)
+        run: ruff check observability/otel-forward.py
+
+  # ── Shell scripts ────────────────────────────────────────────────────────────
+  lint-shell:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+      - name: ShellCheck rebuild-hub.sh
+        run: shellcheck observability/rebuild-hub.sh
+      - name: ShellCheck host-agent/install.sh
+        run: shellcheck observability/host-agent/install.sh
+
+  # ── OTel collector config validation ─────────────────────────────────────────
+  validate-otel-config:
+    name: OTel collector config validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download otelcol-contrib v0.149.0
+        run: |
+          curl -fsSL \
+            "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.149.0/otelcol-contrib_0.149.0_linux_amd64.tar.gz" \
+            -o otelcol-contrib.tar.gz
+          tar -xzf otelcol-contrib.tar.gz otelcol-contrib
+          chmod +x otelcol-contrib
+      - name: Validate host-agent config
+        run: ./otelcol-contrib validate --config observability/host-agent/otel-collector-config.yaml
+
+  # ── Helm lint + manifest validation ─────────────────────────────────────────
+  helm:
+    name: Helm lint & template
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+      - name: Install Helm
+        uses: azure/setup-helm@v4
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: Install kubeconform
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          curl -fsSL \
+            "https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz" \
+            -o kubeconform.tar.gz
+          tar -xzf kubeconform.tar.gz kubeconform
+          chmod +x kubeconform
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Add Helm repos
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+          helm repo update
+
+      - name: Pull charts
+        run: |
+          helm pull grafana/loki --untar --untardir /tmp/charts
+          helm pull grafana/tempo --untar --untardir /tmp/charts
+          helm pull prometheus-community/kube-prometheus-stack --untar --untardir /tmp/charts
+          helm pull open-telemetry/opentelemetry-collector --version 0.150.1 --untar --untardir /tmp/charts
+
+      # Lint: catches unknown/mis-typed values keys before rendering
+      - name: helm lint — loki
+        run: helm lint /tmp/charts/loki --values observability/loki-values.yaml
+      - name: helm lint — tempo
+        run: helm lint /tmp/charts/tempo --values observability/tempo-values.yaml
+      - name: helm lint — kube-prometheus-stack
+        run: helm lint /tmp/charts/kube-prometheus-stack --values observability/kube-prometheus-stack-values.yaml
+      - name: helm lint — otel-gateway
+        run: helm lint /tmp/charts/opentelemetry-collector --values observability/otel-collector-gateway-values.yaml
+      - name: helm lint — otel-agent
+        run: helm lint /tmp/charts/opentelemetry-collector --values observability/otel-collector-agent-values.yaml
+
+      # Template + kubeconform: renders full manifests and validates against the
+      # Kubernetes API schema.  -ignore-missing-schemas skips CRDs (e.g.
+      # ServiceMonitor) that have no published JSON schema.
+      - name: template + kubeconform — loki
+        run: |
+          helm template loki /tmp/charts/loki \
+            --values observability/loki-values.yaml \
+            | kubeconform -strict -ignore-missing-schemas -summary
+
+      - name: template + kubeconform — tempo
+        run: |
+          helm template tempo /tmp/charts/tempo \
+            --values observability/tempo-values.yaml \
+            | kubeconform -strict -ignore-missing-schemas -summary
+
+      - name: template + kubeconform — kube-prometheus-stack
+        run: |
+          helm template kube-prometheus-stack /tmp/charts/kube-prometheus-stack \
+            --values observability/kube-prometheus-stack-values.yaml \
+            | kubeconform -strict -ignore-missing-schemas -summary
+
+      - name: template + kubeconform — otel-gateway
+        run: |
+          helm template otel-gateway /tmp/charts/opentelemetry-collector \
+            --values observability/otel-collector-gateway-values.yaml \
+            | kubeconform -strict -ignore-missing-schemas -summary
+
+      - name: template + kubeconform — otel-agent
+        run: |
+          helm template otel-agent /tmp/charts/opentelemetry-collector \
+            --values observability/otel-collector-agent-values.yaml \
+            | kubeconform -strict -ignore-missing-schemas -summary
