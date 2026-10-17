@@ -85,7 +85,7 @@ systemd TCP proxy → NodePort 30317"]
 
 | URL | Credentials |
 |---|---|
-| http://192.168.1.176:30300 | admin / changeme |
+| http://192.168.1.176:30300 | admin / *(retrieve with `kubectl get secret -n observability grafana-admin-credentials -o jsonpath='{.data.admin-password}' \| base64 -d`)* |
 
 Grafana has Prometheus, Loki, and Tempo pre-wired as datasources. This is the main
 interface for querying metrics, browsing logs, and viewing traces. Loki and Tempo

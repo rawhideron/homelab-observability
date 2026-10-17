@@ -6,7 +6,7 @@
 
 | URL | Credentials |
 |-----|-------------|
-| http://192.168.1.176:30300 | admin / changeme |
+| http://192.168.1.176:30300 | admin / *(retrieve with `kubectl get secret -n observability grafana-admin-credentials -o jsonpath='{.data.admin-password}' \| base64 -d`)* |
 
 Grafana is the primary UI for all observability data. Prometheus, Loki, and Tempo
 are pre-wired as datasources. Loki and Tempo have no standalone UI.
