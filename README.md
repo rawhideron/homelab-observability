@@ -91,6 +91,14 @@ Grafana has Prometheus, Loki, and Tempo pre-wired as datasources. This is the ma
 interface for querying metrics, browsing logs, and viewing traces. Loki and Tempo
 have no standalone UI — use Grafana for everything.
 
+**Changing the admin password:**
+
+```bash
+observability/change-grafana-password.sh <new-password>
+```
+
+This updates the `grafana-admin-credentials` secret in-cluster and restarts Grafana to pick it up.
+
 **Recommended dashboards** (import via Dashboards → New → Import):
 
 | ID | Name | Datasource | Description |
@@ -314,6 +322,7 @@ homelab-observability/
 │   ├── otel-collector-agent-values.yaml     # Source cluster agents (DaemonSet)
 │   ├── otel-forward.py                      # Host-side TCP proxy for Kind NodePorts
 │   ├── otel-forward.service                 # systemd unit for the host-side proxy
+│   ├── change-grafana-password.sh           # Rotate the Grafana admin password
 │   ├── kube-prometheus-stack-values.yaml    # Prometheus + Grafana
 │   ├── loki-values.yaml                     # Log storage
 │   ├── tempo-values.yaml                    # Trace storage
