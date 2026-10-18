@@ -73,7 +73,9 @@ grafana:
         - name: Prometheus
           type: prometheus
           uid: prometheus
-          url: http://172.18.0.5:30900
+          # In-cluster Service: a node IP + NodePort breaks whenever kind nodes
+          # are recreated or retired (the old 172.18.0.5:30900 stopped answering).
+          url: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
           access: proxy
           isDefault: true
   additionalDataSources:
