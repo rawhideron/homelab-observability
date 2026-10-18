@@ -30,6 +30,26 @@ tempo:
         http:
           endpoint: 0.0.0.0:4318
   retention: 336h
+  # Grafana's Traces Drilldown runs TraceQL metrics queries (rate(),
+  # histogram_over_time()), which only work with the generator's local-blocks
+  # processor; without it they fail with "error finding generators: empty
+  # ring". span-metrics / service-graphs are left off to save memory.
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/api/v1/write
+    processor:
+      local_blocks:
+        flush_to_storage: true
+        filter_server_spans: false
+    storage:
+      path: /var/tempo/generator/wal
+    traces_storage:
+      path: /var/tempo/generator/traces
+  overrides:
+    defaults:
+      metrics_generator:
+        processors:
+          - local-blocks
 
 persistence:
   enabled: true
