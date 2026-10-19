@@ -50,13 +50,16 @@ grafana:
     accessModes:
       - ReadWriteOnce
     size: 1Gi
+  # 250m/512Mi starved Grafana once the multi-cluster and Hosts dashboards
+  # (17-20 queries each, 1m refresh) were in use: it sat at the CPU limit and
+  # probes timed out ("Failed to fetch"). Memory stays modest: the host is tight.
   resources:
     requests:
       memory: 128Mi
       cpu: 50m
     limits:
-      memory: 512Mi
-      cpu: 250m
+      memory: 768Mi
+      cpu: 1000m
   service:
     type: NodePort
     nodePort: 30300
