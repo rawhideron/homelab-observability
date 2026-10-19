@@ -178,6 +178,14 @@ switch clusters: they use Prometheus-native metrics (`kube_*`,
 `container_*_seconds_total`, `node_*`) that only the hub's own scrapes produce,
 and their hidden `cluster` variable reads a `cluster` label nothing sets.
 
+**Hosts (OTel)** (`/d/homelab-hosts`, from `observability/dashboards/hosts.json`)
+is the per-machine view: CPU, load, memory, filesystems, disks, NICs and TCP
+connections for every host running the standalone host agent (currently pop-os
+and the Zephyrus hub). Every kind/k3s cluster runs on one of those machines, so
+use it instead of Node Exporter Full (1860), which only sees the hub's kind
+nodes. The in-cluster agents' `system_*` metrics are left out: they report
+host-wide CPU/memory once per node and only the agent pod's own network.
+
 To add the same selector to another dashboard:
 
 | Field | Value |
@@ -299,7 +307,10 @@ dashboard's Node network panel shows the sum of pod traffic for it.
 
 Use this for any machine that is not running a Kubernetes cluster — it installs a
 standalone `otelcol-contrib` agent that collects host metrics and journald logs and
-ships them to the hub gateway at `192.168.1.176:4317`.
+ships them to the hub gateway at `192.168.1.176:4317`. Hosts that do run kind or
+k3s clusters should get it too (pop-os and the Zephyrus hub have it): the
+in-cluster agents can't see the machine's real disks and NICs, and the Hosts
+dashboard lists only machines running this agent.
 
 **1. Copy the host-agent files to the target machine:**
 
