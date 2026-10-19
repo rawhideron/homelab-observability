@@ -50,8 +50,10 @@ sudo helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install otel-agent op
   --values observability/otel-collector-agent-values.yaml \
   --set "extraEnvs[0].value=inspiron-k3s" --wait --timeout 3m
 
-# Host metrics + journald (the Hosts dashboard)
-bash observability/host-agent/install.sh
+# Host metrics for the Hosts dashboard. Metrics only: shipping the 3.2 GB journal
+# from its spinning disk drove this 8 GB machine into swap on 2026-10-19.
+# Installed but currently disabled; enable with: sudo systemctl enable --now otel-collector
+METRICS_ONLY=1 bash observability/host-agent/install.sh
 ```
 
 ### zephyrus

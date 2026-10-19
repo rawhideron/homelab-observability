@@ -1,0 +1,67 @@
+# Metrics-only variant of otel-collector-config.yaml: no journald receiver.
+# For hosts with a slow disk or little free RAM. On the Dell (spinning HDD,
+# 3.2 GB journal, ~8 GB RAM) the journald receiver's journalctl drove it into
+# swap and stalled k3s/Rancher for ~50 minutes on 2026-10-19.
+# Install with: METRICS_ONLY=1 bash install.sh
+receivers:
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu: {}
+      memory: {}
+      disk: {}
+      filesystem:
+        exclude_mount_points:
+          mount_points:
+          - /dev
+          - /proc
+          - /sys
+          - /run
+          match_type: strict
+      network: {}
+      load: {}
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 15
+  batch:
+    send_batch_size: 4096
+    timeout: 200ms
+  resourcedetection:
+    detectors:
+    - system
+    system:
+      hostname_sources:
+      - os
+      resource_attributes:
+        host.name:
+          enabled: true
+        host.ip:
+          enabled: true
+exporters:
+  otlp_grpc:
+    endpoint: 192.168.1.176:4317
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+service:
+  extensions:
+  - health_check
+  pipelines:
+    metrics:
+      receivers:
+      - hostmetrics
+      processors:
+      - memory_limiter
+      - resourcedetection
+      - batch
+      exporters:
+      - otlp_grpc

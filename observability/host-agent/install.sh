@@ -26,7 +26,13 @@ echo "    installed ${INSTALL_BIN}"
 
 echo "==> Installing config"
 sudo mkdir -p "${CONFIG_DIR}"
-sudo install -m 0644 "${SCRIPT_DIR}/otel-collector-config.yaml" "${CONFIG_FILE}"
+# METRICS_ONLY=1 skips journald shipping (see otel-collector-config-metrics-only.yaml)
+if [[ "${METRICS_ONLY:-0}" == 1 ]]; then
+  CONFIG_SRC="${SCRIPT_DIR}/otel-collector-config-metrics-only.yaml"
+else
+  CONFIG_SRC="${SCRIPT_DIR}/otel-collector-config.yaml"
+fi
+sudo install -m 0644 "${CONFIG_SRC}" "${CONFIG_FILE}"
 echo "    installed ${CONFIG_FILE}"
 
 echo "==> Installing systemd service"
