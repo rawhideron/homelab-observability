@@ -165,7 +165,19 @@ Import via **Dashboards → New → Import → enter ID → Load**
 
 ### Cluster filter variable
 
-Add a dashboard variable to switch between clusters:
+**Kubernetes / Multi-cluster (OTel)** (`/d/k8s-multi-cluster`) is provisioned
+from `observability/dashboards/kubernetes-multi-cluster.json` by
+`rebuild-hub.sh` (a ConfigMap labelled `grafana_dashboard=1`). It has Cluster →
+Node / Namespace → Pod dropdowns and only uses kubeletstats metrics, which
+every source cluster ships. To apply a change to the JSON without a full
+rebuild, run the `create configmap … | kubectl apply` step from `rebuild-hub.sh`.
+
+The built-in kube-prometheus-stack and imported dashboards (315, 1860) can't
+switch clusters: they use Prometheus-native metrics (`kube_*`,
+`container_*_seconds_total`, `node_*`) that only the hub's own scrapes produce,
+and their hidden `cluster` variable reads a `cluster` label nothing sets.
+
+To add the same selector to another dashboard:
 
 | Field | Value |
 |---|---|

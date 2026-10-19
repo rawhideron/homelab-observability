@@ -71,7 +71,9 @@ Import via: Dashboards → New → Import → enter ID → Load
 
 ### Cluster filter variable
 
-To filter dashboards by source cluster, create a variable:
+Use the provisioned **Kubernetes / Multi-cluster (OTel)** dashboard
+(`/d/k8s-multi-cluster`), which already has Cluster, Node, Namespace and Pod
+dropdowns. To add the same selector to another dashboard, create a variable:
 
 - Name: `cluster`
 - Type: Query

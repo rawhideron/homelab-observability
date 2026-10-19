@@ -46,6 +46,13 @@ helm upgrade --install otel-gateway open-telemetry/opentelemetry-collector \
   --values "${REPO_ROOT}/observability/otel-collector-gateway-values.yaml" \
   --wait --timeout 5m
 
+# Grafana's dashboard sidecar loads any ConfigMap labelled grafana_dashboard=1
+kubectl -n "${NAMESPACE}" create configmap grafana-dashboard-k8s-multi-cluster \
+  --from-file="${REPO_ROOT}/observability/dashboards/kubernetes-multi-cluster.json" \
+  --dry-run=client -o yaml |
+  kubectl label --local -f - grafana_dashboard=1 -o yaml |
+  kubectl apply -f -
+
 sudo install -m 0755 "${REPO_ROOT}/observability/otel-forward.py" /usr/local/bin/otel-forward.py
 sudo install -m 0644 "${REPO_ROOT}/observability/otel-forward.service" /etc/systemd/system/otel-forward.service
 sudo systemctl daemon-reload
