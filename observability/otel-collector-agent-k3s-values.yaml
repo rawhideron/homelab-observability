@@ -1,0 +1,44 @@
+# Overrides for the k3s cluster on the Zephyrus host, layered on top of
+# otel-collector-agent-values.yaml:
+#   helm ... --values otel-collector-agent-values.yaml \
+#            --values otel-collector-agent-k3s-values.yaml
+#
+# k3s runs directly on the hub host, whose otel-forward relay already listens
+# on 0.0.0.0:4317 for every source cluster. A hostPort 4317/4318 here would add
+# DNAT rules that steal that traffic, so the agent gets no hostPorts (it only
+# needs to export to the hub, not receive on the node).
+ports:
+  otlp:
+    hostPort: null
+  otlp-http:
+    hostPort: null
+  # Chart defaults that would also claim host ports; nothing here sends
+  # Jaeger or Zipkin.
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+
+# k3s uses containerd (logs under /var/log/pods); there is no
+# /var/lib/docker/containers on this host (snap docker).
+extraVolumes:
+  - name: varlogpods
+    hostPath:
+      path: /var/log/pods
+
+extraVolumeMounts:
+  - name: varlogpods
+    mountPath: /var/log/pods
+    readOnly: true
+
+extraEnvs:
+  - name: K8S_CLUSTER_NAME
+    value: "zephyrus-k3s"
+  - name: K8S_NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName

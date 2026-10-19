@@ -76,6 +76,7 @@ systemd TCP proxy → NodePort 30317"]
 | jan2026 | 192.168.1.230 | rongoodman | Enabled and exporting to `192.168.1.176` | https://goodmanreunion.duckdns.org/argocd |
 | rawhideron | 192.168.1.177 | rawhideron | Enabled and exporting to `192.168.1.176` | — |
 | zephyrus | 192.168.1.176 | ron-goodman | Enabled and exporting to `192.168.1.176` | — |
+| zephyrus-k3s | 192.168.1.176 (k3s, same host) | ron-goodman | Enabled and exporting to `192.168.1.176` | — |
 
 ---
 
@@ -274,6 +275,25 @@ helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
   --values observability/otel-collector-agent-values.yaml \
   --set "extraEnvs[0].value=rawhideron" --wait --timeout 3m
 ```
+
+### Source cluster: zephyrus-k3s (k3s on 192.168.1.176)
+
+k3s runs directly on the hub host, where `otel-forward` already owns
+`0.0.0.0:4317`. `otel-collector-agent-k3s-values.yaml` drops every hostPort (a
+k3s hostPort 4317 would DNAT the other clusters' exports away from the hub),
+mounts only `/var/log/pods` (containerd) and sets the cluster name.
+
+```bash
+K=/etc/rancher/k3s/k3s.yaml
+kubectl --kubeconfig $K create namespace otel-agent --dry-run=client -o yaml | kubectl --kubeconfig $K apply -f -
+helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
+  --kubeconfig $K --version 0.150.1 -n otel-agent \
+  --values observability/otel-collector-agent-values.yaml \
+  --values observability/otel-collector-agent-k3s-values.yaml --wait --timeout 3m
+```
+
+k3s's kubelet reports no node-level network stats, so the multi-cluster
+dashboard's Node network panel shows the sum of pod traffic for it.
 
 ### Adding a bare-metal or VM host
 

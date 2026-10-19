@@ -80,7 +80,7 @@ dropdowns. To add the same selector to another dashboard, create a variable:
 - Data source: Prometheus
 - Query: `label_values(k8s_node_cpu_usage, k8s_cluster_name)`
 
-This lets you toggle between `jan2026` (192.168.1.230), `rawhideron` (192.168.1.177), and `zephyrus` (192.168.1.176).
+This lets you toggle between `jan2026` (192.168.1.230), `rawhideron` (192.168.1.177), `zephyrus` (kind, 192.168.1.176) and `zephyrus-k3s` (k3s, 192.168.1.176).
 
 ---
 
@@ -91,6 +91,7 @@ This lets you toggle between `jan2026` (192.168.1.230), `rawhideron` (192.168.1.
 | jan2026 | 192.168.1.230 | rongoodman | https://goodmanreunion.duckdns.org/argocd |
 | rawhideron | 192.168.1.177 | rawhideron | — |
 | zephyrus | 192.168.1.176 | ron-goodman | — |
+| zephyrus-k3s | 192.168.1.176 (k3s, same host) | ron-goodman | — |
 
 ---
 
