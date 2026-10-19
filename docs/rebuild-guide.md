@@ -40,18 +40,18 @@ helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
   --wait --timeout 3m
 ```
 
-### rawhideron
+### inspiron-k3s (192.168.1.177)
 
 ```bash
-helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
-helm repo update
-kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f -
-helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
-  --version 0.150.1 \
-  -n otel-agent \
+# k3s's kubeconfig is root-only, so run helm with sudo and give it the chart repo URL
+sudo helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install otel-agent opentelemetry-collector \
+  --repo https://open-telemetry.github.io/opentelemetry-helm-charts --version 0.150.1 \
+  --create-namespace -n otel-agent \
   --values observability/otel-collector-agent-values.yaml \
-  --set "extraEnvs[0].value=rawhideron" \
-  --wait --timeout 3m
+  --set "extraEnvs[0].value=inspiron-k3s" --wait --timeout 3m
+
+# Host metrics + journald (the Hosts dashboard)
+bash observability/host-agent/install.sh
 ```
 
 ### zephyrus

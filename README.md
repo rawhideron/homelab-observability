@@ -41,10 +41,10 @@ trace storage]
 unified UI]
     end
 
-    subgraph rawhide["rawhideron — 192.168.1.177"]
+    subgraph inspiron["inspiron-k3s — 192.168.1.177"]
         A3[OTel Agent DaemonSet
 collects: metrics · logs · traces
-stamps: k8s.cluster.name=rawhideron]
+stamps: k8s.cluster.name=inspiron-k3s]
     end
 
     A1 -- OTLP gRPC --> NAT["192.168.1.176:4317
@@ -74,7 +74,7 @@ systemd TCP proxy → NodePort 30317"]
 | Cluster | Host | Login | OTel Agent | ArgoCD |
 |---|---|---|---|---|
 | jan2026 | 192.168.1.230 | rongoodman | Enabled and exporting to `192.168.1.176` | https://goodmanreunion.duckdns.org/argocd |
-| rawhideron | 192.168.1.177 | rawhideron | Enabled and exporting to `192.168.1.176` | — |
+| inspiron-k3s | 192.168.1.177 (Dell Inspiron 3668, k3s) | rawhideron | Enabled and exporting to `192.168.1.176` | — |
 | zephyrus | 192.168.1.176 | ron-goodman | Enabled and exporting to `192.168.1.176` | — |
 | zephyrus-k3s | 192.168.1.176 (k3s, same host) | ron-goodman | Enabled and exporting to `192.168.1.176` | — |
 
@@ -129,7 +129,7 @@ Forwarded by the `otel-forward` systemd proxy (NodePort 30900 → host port 9090
 
 # Kubernetes metrics from source clusters (OTel-forwarded)
 k8s_node_cpu_usage_nanocores{k8s_cluster_name="jan2026"}
-k8s_node_cpu_usage_nanocores{k8s_cluster_name="rawhideron"}
+k8s_node_cpu_usage_nanocores{k8s_cluster_name="inspiron-k3s"}
 k8s_node_cpu_usage_nanocores{k8s_cluster_name="zephyrus"}
 
 # See all cluster names with data
@@ -180,8 +180,8 @@ and their hidden `cluster` variable reads a `cluster` label nothing sets.
 
 **Hosts (OTel)** (`/d/homelab-hosts`, from `observability/dashboards/hosts.json`)
 is the per-machine view: CPU, load, memory, filesystems, disks, NICs and TCP
-connections for every host running the standalone host agent (currently pop-os
-and the Zephyrus hub). Every kind/k3s cluster runs on one of those machines, so
+connections for every host running the standalone host agent (currently pop-os,
+the Zephyrus hub and the Dell at 192.168.1.177). Every kind/k3s cluster runs on one of those machines, so
 use it instead of Node Exporter Full (1860), which only sees the hub's kind
 nodes. The in-cluster agents' `system_*` metrics are left out: they report
 host-wide CPU/memory once per node and only the agent pod's own network.
@@ -271,17 +271,20 @@ helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
   --set "extraEnvs[0].value=zephyrus" --wait --timeout 3m
 ```
 
-### Source cluster: rawhideron (192.168.1.177)
+### Source cluster: inspiron-k3s (192.168.1.177)
+
+Dell Inspiron 3668 (hostname `rawhideron-Inspiron-3668`, login `rawhideron`), single-node k3s hosting the Rancher server (`rancher.goodmanreunion.duckdns.org`) and SonarQube. Until 2026-10-19 its agent used the cluster name `rawhideron` (the machine's login, from when it was the hub at 192.168.1.153) and had been crash-looping since it was installed.
 
 ```bash
-helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
-helm repo update
-kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f -
-helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
-  --version 0.150.1 \
-  -n otel-agent \
+# k3s's kubeconfig is root-only, so run helm with sudo and give it the chart repo URL
+sudo helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install otel-agent opentelemetry-collector \
+  --repo https://open-telemetry.github.io/opentelemetry-helm-charts --version 0.150.1 \
+  --create-namespace -n otel-agent \
   --values observability/otel-collector-agent-values.yaml \
-  --set "extraEnvs[0].value=rawhideron" --wait --timeout 3m
+  --set "extraEnvs[0].value=inspiron-k3s" --wait --timeout 3m
+
+# Host metrics + journald (the Hosts dashboard)
+bash observability/host-agent/install.sh
 ```
 
 ### Source cluster: zephyrus-k3s (k3s on 192.168.1.176)
@@ -308,7 +311,7 @@ dashboard's Node network panel shows the sum of pod traffic for it.
 Use this for any machine that is not running a Kubernetes cluster — it installs a
 standalone `otelcol-contrib` agent that collects host metrics and journald logs and
 ships them to the hub gateway at `192.168.1.176:4317`. Hosts that do run kind or
-k3s clusters should get it too (pop-os and the Zephyrus hub have it): the
+k3s clusters should get it too (pop-os, the Zephyrus hub and the Dell have it): the
 in-cluster agents can't see the machine's real disks and NICs, and the Hosts
 dashboard lists only machines running this agent.
 

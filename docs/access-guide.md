@@ -80,7 +80,7 @@ dropdowns. To add the same selector to another dashboard, create a variable:
 - Data source: Prometheus
 - Query: `label_values(k8s_node_cpu_usage, k8s_cluster_name)`
 
-This lets you toggle between `jan2026` (192.168.1.230), `rawhideron` (192.168.1.177), `zephyrus` (kind, 192.168.1.176) and `zephyrus-k3s` (k3s, 192.168.1.176).
+This lets you toggle between `jan2026` (192.168.1.230), `inspiron-k3s` (192.168.1.177), `zephyrus` (kind, 192.168.1.176) and `zephyrus-k3s` (k3s, 192.168.1.176).
 
 ---
 
@@ -89,7 +89,7 @@ This lets you toggle between `jan2026` (192.168.1.230), `rawhideron` (192.168.1.
 | Cluster | Host | Login | ArgoCD UI |
 |---|---|---|---|
 | jan2026 | 192.168.1.230 | rongoodman | https://goodmanreunion.duckdns.org/argocd |
-| rawhideron | 192.168.1.177 | rawhideron | — |
+| inspiron-k3s | 192.168.1.177 (Dell Inspiron 3668, k3s) | rawhideron | — |
 | zephyrus | 192.168.1.176 | ron-goodman | — |
 | zephyrus-k3s | 192.168.1.176 (k3s, same host) | ron-goodman | — |
 
@@ -98,7 +98,7 @@ This lets you toggle between `jan2026` (192.168.1.230), `rawhideron` (192.168.1.
 ## Architecture Summary
 
 ```
-192.168.1.230 (jan2026)   192.168.1.177 (rawhideron)   192.168.1.176 (zephyrus)
+192.168.1.230 (jan2026)   192.168.1.177 (inspiron-k3s) 192.168.1.176 (zephyrus)
 OTel Agent DaemonSet      OTel Agent DaemonSet         OTel Agent DaemonSet
         \                         |                          /
          \________________ OTLP gRPC _______________________/

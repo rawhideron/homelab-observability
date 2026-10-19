@@ -12,9 +12,13 @@ echo "==> Downloading otelcol-contrib ${OTEL_VERSION}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 
-curl -fsSL \
-  "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${OTEL_VERSION}/otelcol-contrib_${OTEL_VERSION}_linux_amd64.tar.gz" \
-  -o "${TMP}/otelcol-contrib.tar.gz"
+URL="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${OTEL_VERSION}/otelcol-contrib_${OTEL_VERSION}_linux_amd64.tar.gz"
+# Stock Ubuntu installs ship wget but not always curl
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL "${URL}" -o "${TMP}/otelcol-contrib.tar.gz"
+else
+  wget -q "${URL}" -O "${TMP}/otelcol-contrib.tar.gz"
+fi
 
 tar -xzf "${TMP}/otelcol-contrib.tar.gz" -C "${TMP}"
 sudo install -m 0755 "${TMP}/otelcol-contrib" "${INSTALL_BIN}"

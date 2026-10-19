@@ -17,7 +17,7 @@ Central observability platform running on 192.168.1.176, collecting metrics, log
 | Cluster | Host | OTel cluster.name |
 |---|---|---|
 | jan2026 | 192.168.1.230 | jan2026 |
-| rawhideron | 192.168.1.177 | rawhideron |
+| inspiron-k3s | 192.168.1.177 | inspiron-k3s |
 | zephyrus | 192.168.1.176 | zephyrus |
 
 ## Grafana
@@ -61,18 +61,24 @@ kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f 
 helm upgrade --install otel-agent open-telemetry/opentelemetry-collector -n otel-agent   --values observability/otel-collector-agent-values.yaml   --set "extraEnvs[0].value=zephyrus" --wait --timeout 3m
 ```
 
-### Source: rawhideron (192.168.1.177 — rawhideron)
+### Source: inspiron-k3s (192.168.1.177 — rawhideron)
 
 ```bash
-helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts && helm repo update
-kubectl create namespace otel-agent --dry-run=client -o yaml | kubectl apply -f -
-helm upgrade --install otel-agent open-telemetry/opentelemetry-collector -n otel-agent   --values observability/otel-collector-agent-values.yaml   --set "extraEnvs[0].value=rawhideron" --wait --timeout 3m
+# k3s's kubeconfig is root-only, so run helm with sudo and give it the chart repo URL
+sudo helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install otel-agent opentelemetry-collector \
+  --repo https://open-telemetry.github.io/opentelemetry-helm-charts --version 0.150.1 \
+  --create-namespace -n otel-agent \
+  --values observability/otel-collector-agent-values.yaml \
+  --set "extraEnvs[0].value=inspiron-k3s" --wait --timeout 3m
+
+# Host metrics + journald (the Hosts dashboard)
+bash observability/host-agent/install.sh
 ```
 
 ## Querying in Grafana
 
 Filter by cluster and namespace using variables:
-- `label_values(k8s_cluster_name)` → jan2026, rawhideron, or zephyrus
+- `label_values(k8s_cluster_name)` → jan2026, inspiron-k3s, zephyrus or zephyrus-k3s
 - `label_values(k8s_namespace_name{k8s_cluster_name="$cluster"})` → reunion, n8n-rag, etc.
 
 ## Recommended Dashboard IDs
