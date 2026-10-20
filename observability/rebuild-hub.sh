@@ -46,9 +46,13 @@ helm upgrade --install otel-gateway open-telemetry/opentelemetry-collector \
   --values "${REPO_ROOT}/observability/otel-collector-gateway-values.yaml" \
   --wait --timeout 5m
 
-# Grafana's dashboard sidecar loads any ConfigMap labelled grafana_dashboard=1
-for dash in kubernetes-multi-cluster:k8s-multi-cluster hosts:hosts; do
-  kubectl -n "${NAMESPACE}" create configmap "grafana-dashboard-${dash#*:}" \
+# Grafana's dashboard sidecar loads any ConfigMap labelled grafana_dashboard=1.
+# Entries are <file in observability/dashboards>:<ConfigMap name>.
+for dash in \
+  kubernetes-multi-cluster:grafana-dashboard-k8s-multi-cluster \
+  hosts:grafana-dashboard-hosts \
+  nvidia-dcgm:dcgm-exporter-dashboard; do
+  kubectl -n "${NAMESPACE}" create configmap "${dash#*:}" \
     --from-file="${REPO_ROOT}/observability/dashboards/${dash%%:*}.json" \
     --dry-run=client -o yaml |
     kubectl label --local -f - grafana_dashboard=1 -o yaml |
