@@ -186,6 +186,13 @@ use it instead of Node Exporter Full (1860), which only sees the hub's kind
 nodes. The in-cluster agents' `system_*` metrics are left out: they report
 host-wide CPU/memory once per node and only the agent pod's own network.
 
+**NVIDIA DCGM Exporter Dashboard** (`/d/Oxed_c6Wz`, from
+`observability/dashboards/nvidia-dcgm.json`, ConfigMap `dcgm-exporter-dashboard`)
+shows the Zephyrus RTX 3070 from dcgm-exporter: temperature, power, SM clock,
+utilisation, framebuffer memory and tensor-core activity. It is grafana.com
+12239 with every `${DS_PROMETHEUS}` replaced by the `prometheus` datasource uid:
+that placeholder is only resolved by the UI import, never by the sidecar.
+
 To add the same selector to another dashboard:
 
 | Field | Value |
