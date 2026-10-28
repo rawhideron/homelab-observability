@@ -123,6 +123,13 @@ nodeExporter:
       cpu: 100m
 
 prometheus-node-exporter:
+  # The chart's defaults plus run/nvidia-ctk-hook*: the NVIDIA Container Toolkit
+  # leaves a full 4KB tmpfs per GPU container in the kind nodes, which fired
+  # NodeFilesystemAlmostOutOfSpace forever. extraArgs replaces the chart's
+  # list, so the fs-types default is repeated here.
+  extraArgs:
+    - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|run/nvidia-ctk-hook[^/]*|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+    - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
   prometheus:
     monitor:
       metricRelabelings:
