@@ -1,4 +1,7 @@
 tempo:
+  # Chart 1.24.4 is the last single-binary release and still ships Tempo 2.9.0
+  # (CVE-2025-68121, CVE-2026-33186). 2.10.10 scans 0 critical (goodman_reunion #881).
+  tag: 2.10.10
   reportingEnabled: false
   # The chart's default 1 GiB ballast fights the 1 GiB limit. Instead, GOMEMLIMIT
   # makes the Go GC work harder near the limit rather than letting Tempo stall
@@ -23,6 +26,10 @@ tempo:
       wal:
         path: /var/tempo/wal
   receivers:
+    # Tempo 2.10 removed the opencensus receiver, and the chart enables it by
+    # default (`opencensus:` = null), which stops 2.10 from starting. null here
+    # deletes the key. Nothing sends OpenCensus.
+    opencensus: null
     otlp:
       protocols:
         grpc:
