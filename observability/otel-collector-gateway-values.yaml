@@ -3,7 +3,9 @@ replicaCount: 1
 
 image:
   repository: otel/opentelemetry-collector-contrib
-  tag: 0.149.0
+  # 0.149.0 bundles amqp091-go 1.10.0 (3 critical CVEs); 0.162.0 matches the
+  # otel-agents on the same chart and scans 0 critical (goodman_reunion #881).
+  tag: 0.162.0
 
 rollout:
   strategy: Recreate
