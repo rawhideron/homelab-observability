@@ -67,6 +67,10 @@ grafana:
     server:
       root_url: "http://192.168.1.176:30300"
   sidecar:
+    # Chart default 2.14.1 ships certifi with the compromised emSign roots
+    # (GHSA-6q48-6c7w-9gw2); 2.14.3 scans 0 critical (goodman_reunion #881).
+    image:
+      tag: 2.14.3
     datasources:
       defaultDatasourceEnabled: false
   datasources:
