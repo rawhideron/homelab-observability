@@ -1,0 +1,22 @@
+[Unit]
+Description=Prometheus node_exporter (host-level metrics)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=node_exporter
+Group=node_exporter
+# Mounts and filesystem types from Docker, kind, containerd and k3s are left
+# out, so the filesystem collector reports only the machine's real disks.
+ExecStart=/usr/local/bin/node_exporter \
+  --web.listen-address=:9100 \
+  --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|run/k3s/.+|run/nvidia-ctk-hook[^/]*|run/docker/.+|var/lib/docker/.+|var/lib/kubelet/.+|var/lib/rancher/.+|snap/.+)($$|/) \
+  --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$$
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

@@ -48,15 +48,18 @@ helm upgrade --install otel-gateway open-telemetry/opentelemetry-collector \
 
 # Grafana's dashboard sidecar loads any ConfigMap labelled grafana_dashboard=1.
 # Entries are <file in observability/dashboards>:<ConfigMap name>.
+# Server-side apply: node-exporter-full.json (470 KB) is too big for the
+# 256 KiB last-applied annotation a client-side apply writes.
 for dash in \
   kubernetes-multi-cluster:grafana-dashboard-k8s-multi-cluster \
   hosts:grafana-dashboard-hosts \
-  nvidia-dcgm:dcgm-exporter-dashboard; do
+  nvidia-dcgm:dcgm-exporter-dashboard \
+  node-exporter-full:grafana-dashboard-node-exporter-full; do
   kubectl -n "${NAMESPACE}" create configmap "${dash#*:}" \
     --from-file="${REPO_ROOT}/observability/dashboards/${dash%%:*}.json" \
     --dry-run=client -o yaml |
     kubectl label --local -f - grafana_dashboard=1 -o yaml |
-    kubectl apply -f -
+    kubectl apply --server-side --force-conflicts -f -
 done
 
 sudo install -m 0755 "${REPO_ROOT}/observability/otel-forward.py" /usr/local/bin/otel-forward.py
