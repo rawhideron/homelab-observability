@@ -10,6 +10,21 @@ prometheus:
       outOfOrderTimeWindow: 10m
     externalLabels:
       k8s_cluster_name: zephyrus
+    # node_exporter as a systemd service on each physical host
+    # (observability/node-exporter). The in-cluster node-exporter only sees the
+    # kind node containers. host_name matches the OTel host agent's label.
+    additionalScrapeConfigs:
+      - job_name: host-node-exporter
+        static_configs:
+          - targets: ["192.168.1.176:9100"]
+            labels:
+              host_name: ron-goodman-ROG-Zephyrus-G15-GA503QR-GA503QR
+          - targets: ["192.168.1.177:9100"]
+            labels:
+              host_name: rawhideron-Inspiron-3668
+          - targets: ["192.168.1.230:9100"]
+            labels:
+              host_name: pop-os
     resources:
       requests:
         memory: 512Mi
@@ -174,6 +189,51 @@ kube-state-metrics:
       metricRelabelings:
         - targetLabel: k8s_cluster_name
           replacement: zephyrus
+
+additionalPrometheusRulesMap:
+  host-node-exporter:
+    groups:
+      - name: host-node-exporter
+        rules:
+          - alert: HostDown
+            expr: up{job="host-node-exporter"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Host {{ $labels.host_name }} is down"
+              description: "node_exporter on {{ $labels.instance }} has not answered for 5 minutes."
+          - alert: HostHighCpu
+            expr: |
+              100 * (1 - avg by (host_name, instance) (
+                rate(node_cpu_seconds_total{job="host-node-exporter", mode="idle"}[5m])
+              )) > 90
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host {{ $labels.host_name }} CPU above 90% for 15 minutes"
+              description: "CPU busy is {{ $value | printf \"%.0f\" }}%."
+          - alert: HostLowMemory
+            expr: |
+              100 * node_memory_MemAvailable_bytes{job="host-node-exporter"}
+                / node_memory_MemTotal_bytes{job="host-node-exporter"} < 10
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host {{ $labels.host_name }} has less than 10% memory available"
+              description: "Available memory is {{ $value | printf \"%.1f\" }}%."
+          - alert: HostDiskUsageHigh
+            expr: |
+              100 * (1 - node_filesystem_avail_bytes{job="host-node-exporter", fstype!~"tmpfs|vfat"}
+                / node_filesystem_size_bytes{job="host-node-exporter", fstype!~"tmpfs|vfat"}) > 85
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Host {{ $labels.host_name }} {{ $labels.mountpoint }} is over 85% full"
+              description: "{{ $labels.mountpoint }} ({{ $labels.device }}) is {{ $value | printf \"%.0f\" }}% used."
 
 # Kind clusters don't expose these endpoints
 kubeControllerManager:

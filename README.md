@@ -105,7 +105,7 @@ This updates the `grafana-admin-credentials` secret in-cluster and restarts Graf
 | ID | Name | Datasource | Description |
 |---|---|---|---|
 | 315 | Kubernetes cluster overview | Prometheus | Pod counts, deployments, namespaces, and resource usage across the cluster |
-| 1860 | Node Exporter Full | Prometheus | Detailed per-node CPU, memory, disk, and network metrics from node-exporter |
+| 1860 | Node Exporter Full | Prometheus | Already provisioned (see [Host metrics: node_exporter](#host-metrics-node_exporter)); pick job `host-node-exporter` for the physical hosts |
 | 15141 | Loki Kubernetes Logs | Loki | Browse and search container logs by namespace, pod, and stream |
 
 
@@ -161,7 +161,7 @@ Import via **Dashboards → New → Import → enter ID → Load**
 | ID | Description |
 |---|---|
 | 315 | Kubernetes cluster overview |
-| 1860 | Node Exporter Full (host metrics) |
+| 1860 | Node Exporter Full (host metrics). Already provisioned; pick job `host-node-exporter` |
 | 15141 | Kubernetes pods / Loki log viewer |
 
 ### Cluster filter variable
@@ -181,10 +181,17 @@ and their hidden `cluster` variable reads a `cluster` label nothing sets.
 **Hosts (OTel)** (`/d/homelab-hosts`, from `observability/dashboards/hosts.json`)
 is the per-machine view: CPU, load, memory, filesystems, disks, NICs and TCP
 connections for every host running the standalone host agent (currently pop-os
-and the Zephyrus hub; the Dell's is installed but disabled, see inspiron-k3s). Every kind/k3s cluster runs on one of those machines, so
-use it instead of Node Exporter Full (1860), which only sees the hub's kind
-nodes. The in-cluster agents' `system_*` metrics are left out: they report
-host-wide CPU/memory once per node and only the agent pod's own network.
+and the Zephyrus hub; the Dell's is installed but disabled, see inspiron-k3s). Every kind/k3s cluster runs on one of those machines.
+The in-cluster agents' `system_*` metrics are left out: they report
+host-wide CPU/memory once per node and only the agent pod's own network,
+and their filesystem numbers are the kind node container's, not the host's.
+
+**Node Exporter Full** (`/d/rYdddlPWk`, from
+`observability/dashboards/node-exporter-full.json`, grafana.com 1860) shows the
+same machines from node_exporter. Set **Job** to `host-node-exporter` for the
+physical hosts; the `node-exporter` job is the in-cluster DaemonSet, which only
+sees the hub's kind node containers. Dashboards that mix OTel `system_*` and
+node_exporter `node_*` series count each host twice, so filter on one of them.
 
 **NVIDIA DCGM Exporter Dashboard** (`/d/Oxed_c6Wz`, from
 `observability/dashboards/nvidia-dcgm.json`, ConfigMap `dcgm-exporter-dashboard`)
@@ -367,6 +374,60 @@ Metrics land in Prometheus tagged with `host_name` and `host_ip`, both
 auto-detected from the OS at runtime via the `resourcedetection` processor.
 No edits to the config are needed before deploying to a new host.
 
+### Host metrics: node_exporter
+
+Each physical host also runs Prometheus `node_exporter` 1.12.1 as a systemd
+service (`node_exporter`, as the non-root `node_exporter` user, port 9100),
+outside any kind/k3s cluster. It is the host-level truth for alerting and the
+Node Exporter Full dashboard. The binary is about 20 MB of RAM, and the
+default collectors include cpu, meminfo, loadavg, diskstats, netdev and
+filesystem. Docker, kind, containerd and k3s mounts and overlay/squashfs
+filesystems are left out (see `node_exporter.service`).
+
+| Host | IP | `host_name` label |
+|---|---|---|
+| Zephyrus hub | 192.168.1.176 (also .178) | `ron-goodman-ROG-Zephyrus-G15-GA503QR-GA503QR` |
+| Dell Inspiron | 192.168.1.177 | `rawhideron-Inspiron-3668` |
+| pop-os | 192.168.1.230 | `pop-os` |
+
+**Install or upgrade** (re-running replaces an existing install):
+
+```bash
+scp -r observability/node-exporter <user>@<host-ip>:/tmp/node-exporter
+ssh <user>@<host-ip> "bash /tmp/node-exporter/install.sh && rm -rf /tmp/node-exporter"
+```
+
+**Scraping:** Prometheus scrapes the job `host-node-exporter` from
+`prometheus.prometheusSpec.additionalScrapeConfigs` in
+`kube-prometheus-stack-values.yaml`. Each target sets `host_name` to the
+same value the OTel host agent uses. To add a host, add a target there and
+re-run the kube-prometheus-stack `helm upgrade`.
+
+**Alerts** (`additionalPrometheusRulesMap.host-node-exporter`):
+
+| Alert | Fires when |
+|---|---|
+| `HostDown` | target not answering for 5 m (critical) |
+| `HostHighCpu` | CPU busy > 90 % for 15 m |
+| `HostLowMemory` | MemAvailable < 10 % for 10 m |
+| `HostDiskUsageHigh` | any real filesystem > 85 % used for 10 m |
+
+**Firewall:** UFW is inactive on every host, so 9100 is reachable from the
+LAN; it serves read-only metrics. Scrapes come from the hub (the kind pods
+are NATed to the Zephyrus's address). When UFW is rolled out, allow only the hub:
+
+```bash
+sudo ufw allow from 192.168.1.176 to any port 9100 proto tcp
+sudo ufw allow from 192.168.1.178 to any port 9100 proto tcp
+```
+
+**Check:** Grafana's filesystem usage per host should match `df -h`:
+
+```promql
+(node_filesystem_size_bytes{job="host-node-exporter",mountpoint="/"}
+  - node_filesystem_free_bytes{job="host-node-exporter",mountpoint="/"}) / 2^30
+```
+
 ---
 
 ## Repository Structure
@@ -382,9 +443,12 @@ homelab-observability/
 │   ├── kube-prometheus-stack-values.yaml    # Prometheus + Grafana
 │   ├── loki-values.yaml                     # Log storage
 │   ├── tempo-values.yaml                    # Trace storage
-│   └── host-agent/                          # Standalone agent for bare-metal/VM hosts
-│       ├── otel-collector-config.yaml       # Collector config (hostmetrics + journald)
-│       ├── otel-collector.service           # systemd unit
+│   ├── host-agent/                          # Standalone agent for bare-metal/VM hosts
+│   │   ├── otel-collector-config.yaml       # Collector config (hostmetrics + journald)
+│   │   ├── otel-collector.service           # systemd unit
+│   │   └── install.sh                       # Installer script
+│   └── node-exporter/                       # Prometheus node_exporter on each physical host
+│       ├── node_exporter.service            # systemd unit (non-root, mount excludes)
 │       └── install.sh                       # Installer script
 └── docs/
     ├── observability-plan.md                # Original design plan

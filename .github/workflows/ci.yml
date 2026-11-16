@@ -65,6 +65,8 @@ jobs:
         run: shellcheck observability/rebuild-hub.sh
       - name: ShellCheck host-agent/install.sh
         run: shellcheck observability/host-agent/install.sh
+      - name: ShellCheck node-exporter/install.sh
+        run: shellcheck observability/node-exporter/install.sh
 
   # ── OTel collector config validation ─────────────────────────────────────────
   validate-otel-config:
