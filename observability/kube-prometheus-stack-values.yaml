@@ -234,6 +234,20 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "Host {{ $labels.host_name }} {{ $labels.mountpoint }} is over 85% full"
               description: "{{ $labels.mountpoint }} ({{ $labels.device }}) is {{ $value | printf \"%.0f\" }}% used."
+          # Posted to Slack by observability/alertmanager/host-slack.yaml.
+          # Unlike HostDiskUsageHigh this includes vfat (/boot/efi, /recovery).
+          - alert: HostDiskUsageCritical
+            expr: |
+              100 * (1 - node_filesystem_avail_bytes{job="host-node-exporter", fstype!="tmpfs"}
+                / node_filesystem_size_bytes{job="host-node-exporter", fstype!="tmpfs"}) > 90
+            for: 10m
+            labels:
+              severity: critical
+              # An AlertmanagerConfig only receives alerts carrying its namespace.
+              namespace: observability
+            annotations:
+              summary: "{{ $labels.host_name }} {{ $labels.mountpoint }} is {{ $value | printf \"%.0f\" }}% full"
+              description: "{{ $labels.mountpoint }} ({{ $labels.device }}) on {{ $labels.host_name }} is over 90% used."
 
 # Kind clusters don't expose these endpoints
 kubeControllerManager:

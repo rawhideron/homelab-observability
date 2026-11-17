@@ -62,6 +62,10 @@ for dash in \
     kubectl apply --server-side --force-conflicts -f -
 done
 
+# Slack route for host alerts. Needs the alertmanager-slack Secret, which
+# goodman_reunion's observability-178 Argo CD app deploys.
+kubectl apply -f "${REPO_ROOT}/observability/alertmanager/host-slack.yaml"
+
 sudo install -m 0755 "${REPO_ROOT}/observability/otel-forward.py" /usr/local/bin/otel-forward.py
 sudo install -m 0644 "${REPO_ROOT}/observability/otel-forward.service" /etc/systemd/system/otel-forward.service
 sudo systemctl daemon-reload

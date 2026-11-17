@@ -410,7 +410,18 @@ re-run the kube-prometheus-stack `helm upgrade`.
 | `HostDown` | target not answering for 5 m (critical) |
 | `HostHighCpu` | CPU busy > 90 % for 15 m |
 | `HostLowMemory` | MemAvailable < 10 % for 10 m |
-| `HostDiskUsageHigh` | any real filesystem > 85 % used for 10 m |
+| `HostDiskUsageHigh` | any real filesystem > 85 % used for 10 m (vfat excluded) |
+| `HostDiskUsageCritical` | any non-tmpfs filesystem > 90 % used for 10 m (includes `/boot/efi`, `/recovery`). **Posted to Slack** |
+
+**Slack:** `observability/alertmanager/host-slack.yaml` (an `AlertmanagerConfig`,
+applied by `rebuild-hub.sh`) sends `HostDiskUsageCritical` to the Slack channel
+that the Trivy CVE alerts use. It posts when a disk goes over 90%, again
+daily while it stays over, and once more when it drops back under. The webhook is the
+`alertmanager-slack` Secret (key `webhook-url`), which goodman_reunion seals and
+deploys (`k8s-observability-178/alertmanager-slack-sealed.yaml`). The other
+`Host*` alerts show only in Alertmanager (http://192.168.1.176:9093). To send
+one to Slack, add its name to the route's `alertname` matcher (`matchType: "=~"`)
+and give the rule the label `namespace: observability`.
 
 **Firewall:** UFW is inactive on every host, so 9100 is reachable from the
 LAN; it serves read-only metrics. Scrapes come from the hub (the kind pods
@@ -447,6 +458,7 @@ homelab-observability/
 │   │   ├── otel-collector-config.yaml       # Collector config (hostmetrics + journald)
 │   │   ├── otel-collector.service           # systemd unit
 │   │   └── install.sh                       # Installer script
+│   ├── alertmanager/host-slack.yaml         # Slack route for HostDiskUsageCritical
 │   └── node-exporter/                       # Prometheus node_exporter on each physical host
 │       ├── node_exporter.service            # systemd unit (non-root, mount excludes)
 │       └── install.sh                       # Installer script
