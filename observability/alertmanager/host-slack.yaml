@@ -1,0 +1,39 @@
+# Posts HostDiskUsageCritical (any host filesystem over 90%) to the Slack
+# channel the Trivy CVE alerts use. The webhook URL is the alertmanager-slack
+# Secret (key webhook-url), sealed and deployed from goodman_reunion
+# (k8s-observability-178/alertmanager-slack-sealed.yaml).
+# Applied by rebuild-hub.sh; not a Helm value because the chart runs tpl over
+# extraManifests, which would evaluate the {{ }} message templates below.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: host-slack
+  namespace: observability
+spec:
+  route:
+    receiver: host-slack
+    matchers:
+      - name: alertname
+        value: HostDiskUsageCritical
+        matchType: "="
+    groupBy:
+      - host_name
+    groupWait: 1m
+    groupInterval: 15m
+    # A disk that stays over 90% is re-posted daily.
+    repeatInterval: 24h
+  receivers:
+    - name: host-slack
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack
+            key: webhook-url
+          sendResolved: true
+          title: >-
+            {{ if eq .Status "firing" }}:rotating_light: Disk over 90% on{{ else }}:white_check_mark: Disk back under 90% on{{ end }}
+            {{ .CommonLabels.host_name }}
+          text: |-
+            {{ range .Alerts.Firing }}• {{ .Annotations.summary }}
+            {{ end }}{{ if .Alerts.Resolved }}*Resolved:*
+            {{ range .Alerts.Resolved }}• :white_check_mark: {{ .Labels.mountpoint }}
+            {{ end }}{{ end }}
