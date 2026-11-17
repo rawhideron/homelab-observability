@@ -423,6 +423,18 @@ deploys (`k8s-observability-178/alertmanager-slack-sealed.yaml`). The other
 one to Slack, add its name to the route's `alertname` matcher (`matchType: "=~"`)
 and give the rule the label `namespace: observability`.
 
+**Java patch check (230):** `observability/java-patch-check/` installs a daily
+systemd timer (`install.sh`) that compares Ubuntu's `openjdk-*` candidates,
+the latest Temurin 11/21/25 builds and the latest Keycloak release against the
+baselines in `/etc/java-patch-check.env` (versions current on 2026-11-17, the
+day of Oracle's Java SE patch). It writes `java_patch_*` metrics to node_exporter's
+textfile directory. `JavaPatchAvailable` fires when a newer build is out and
+`JavaPatchCheckFailing` when a lookup fails or the check hasn't run in 2 days;
+`observability/alertmanager/java-patch-slack.yaml` posts both to the same Slack
+channel. After rolling a patched build out, set its baseline to the new version
+(Ubuntu packages clear on their own once upgraded). Run it now with
+`sudo systemctl start java-patch-check` and read `/var/lib/node_exporter/textfile/java_patch.prom`.
+
 **Firewall:** UFW is inactive on every host, so 9100 is reachable from the
 LAN; it serves read-only metrics. Scrapes come from the hub (the kind pods
 are NATed to the Zephyrus's address). When UFW is rolled out, allow only the hub:
@@ -459,6 +471,8 @@ homelab-observability/
 │   │   ├── otel-collector.service           # systemd unit
 │   │   └── install.sh                       # Installer script
 │   ├── alertmanager/host-slack.yaml         # Slack route for HostDiskUsageCritical
+│   ├── alertmanager/java-patch-slack.yaml   # Slack route for JavaPatchAvailable/CheckFailing
+│   ├── java-patch-check/                    # daily patched-Java check on 230 (timer + textfile)
 │   └── node-exporter/                       # Prometheus node_exporter on each physical host
 │       ├── node_exporter.service            # systemd unit (non-root, mount excludes)
 │       └── install.sh                       # Installer script
