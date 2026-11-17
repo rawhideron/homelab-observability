@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for patched Java builds (node_exporter textfile metrics)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Root for apt-get update and the textfile directory.
+ExecStart=/usr/local/bin/java-patch-check
+NoNewPrivileges=true
+ProtectSystem=full

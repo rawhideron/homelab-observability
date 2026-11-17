@@ -11,6 +11,7 @@ Group=node_exporter
 # out, so the filesystem collector reports only the machine's real disks.
 ExecStart=/usr/local/bin/node_exporter \
   --web.listen-address=:9100 \
+  --collector.textfile.directory=/var/lib/node_exporter/textfile \
   --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|run/k3s/.+|run/nvidia-ctk-hook[^/]*|run/docker/.+|var/lib/docker/.+|var/lib/kubelet/.+|var/lib/rancher/.+|snap/.+)($$|/) \
   --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$$
 Restart=always

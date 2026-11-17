@@ -35,6 +35,8 @@ echo "==> Installing binary and systemd service"
 sudo systemctl stop node_exporter 2>/dev/null || true
 sudo install -o root -g root -m 0755 "${TMP}/${NAME}/node_exporter" "${INSTALL_BIN}"
 sudo install -m 0644 "${SCRIPT_DIR}/node_exporter.service" "${SERVICE_FILE}"
+# Textfile collector input (e.g. ../java-patch-check/ on 230)
+sudo install -d -m 0755 /var/lib/node_exporter/textfile
 sudo systemctl daemon-reload
 sudo systemctl enable --now node_exporter
 

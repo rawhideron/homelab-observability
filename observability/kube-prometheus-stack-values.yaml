@@ -248,6 +248,32 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "{{ $labels.host_name }} {{ $labels.mountpoint }} is {{ $value | printf \"%.0f\" }}% full"
               description: "{{ $labels.mountpoint }} ({{ $labels.device }}) on {{ $labels.host_name }} is over 90% used."
+  # From observability/java-patch-check/ on 230 (node_exporter textfile).
+  # Posted to Slack by observability/alertmanager/java-patch-slack.yaml.
+  java-patch:
+    groups:
+      - name: java-patch
+        rules:
+          - alert: JavaPatchAvailable
+            expr: java_patch_available{job="host-node-exporter"} == 1
+            for: 5m
+            labels:
+              severity: warning
+              namespace: observability
+            annotations:
+              summary: "{{ $labels.source }} {{ $labels.component }}: {{ $labels.latest }} is out (baseline/installed {{ $labels.current }})"
+              description: "Roll it out, then set its baseline in /etc/java-patch-check.env on 230 (Ubuntu packages clear on upgrade)."
+          - alert: JavaPatchCheckFailing
+            expr: |
+              java_patch_check_success{job="host-node-exporter"} == 0
+                or time() - java_patch_check_last_run_timestamp_seconds{job="host-node-exporter"} > 2 * 86400
+            for: 1h
+            labels:
+              severity: warning
+              namespace: observability
+            annotations:
+              summary: "java-patch-check on {{ $labels.host_name }} failed a lookup or has not run for 2 days"
+              description: "journalctl -u java-patch-check.service on 230."
 
 # Kind clusters don't expose these endpoints
 kubeControllerManager:

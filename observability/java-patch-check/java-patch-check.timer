@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily check for patched Java builds
+
+[Timer]
+OnCalendar=*-*-* 09:00
+RandomizedDelaySec=30m
+# Runs at boot if 230 was off at 09:00.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

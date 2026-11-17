@@ -1,0 +1,37 @@
+# Posts JavaPatchAvailable (a patched Ubuntu OpenJDK, Temurin or Keycloak
+# build is out; see observability/java-patch-check/) and JavaPatchCheckFailing
+# to the Slack channel the Trivy CVE alerts use, via the same alertmanager-slack
+# Secret as host-slack.yaml. Applied by rebuild-hub.sh.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: java-patch-slack
+  namespace: observability
+spec:
+  route:
+    receiver: java-patch-slack
+    matchers:
+      - name: alertname
+        value: JavaPatchAvailable|JavaPatchCheckFailing
+        matchType: "=~"
+    groupBy:
+      - alertname
+    groupWait: 1m
+    # A source newly getting a patched build is posted within the hour.
+    groupInterval: 1h
+    # Unchanged findings are re-posted weekly.
+    repeatInterval: 168h
+  receivers:
+    - name: java-patch-slack
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack
+            key: webhook-url
+          sendResolved: true
+          title: >-
+            {{ if eq .CommonLabels.alertname "JavaPatchCheckFailing" }}{{ if eq .Status "firing" }}:warning: Java patch check is failing{{ else }}:white_check_mark: Java patch check is working again{{ end }}{{ else }}{{ if eq .Status "firing" }}:package: Patched Java build(s) available{{ else }}:white_check_mark: Java patch alerts cleared{{ end }}{{ end }}
+          text: |-
+            {{ range .Alerts.Firing }}• {{ .Annotations.summary }}
+            {{ end }}{{ if .Alerts.Resolved }}*Resolved:*
+            {{ range .Alerts.Resolved }}• :white_check_mark: {{ .Labels.source }} {{ .Labels.component }}
+            {{ end }}{{ end }}
