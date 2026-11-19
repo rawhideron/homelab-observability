@@ -1,5 +1,6 @@
-# Posts JavaPatchAvailable (a patched Ubuntu OpenJDK, Temurin or Keycloak
-# build is out; see observability/java-patch-check/) and JavaPatchCheckFailing
+# Posts JavaPatchAvailable (an installed Ubuntu OpenJDK or a JVM running in a
+# pod is behind its latest patch release; see observability/java-patch-check/)
+# and JavaPatchCheckFailing
 # to the Slack channel the Trivy CVE alerts use, via the same alertmanager-slack
 # Secret as host-slack.yaml. Applied by rebuild-hub.sh.
 apiVersion: monitoring.coreos.com/v1alpha1
