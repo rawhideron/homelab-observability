@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Daily check for Java builds newer than the ones that were current when
-# Oracle's 2026-11-17 Java SE patch (and CVE-2026-114938) landed. Ubuntu,
-# Temurin and Red Hat ship their own fixes later, on their own schedules.
+# Daily check that the Java this host actually runs is the newest patch
+# release of its line. Two sources:
+#   ubuntu  installed openjdk packages vs. apt's candidate
+#   pod     every JVM running in a Kubernetes pod on this host vs. the latest
+#           Temurin GA build of the same feature release
 #
 # Writes node_exporter textfile metrics; JavaPatchAvailable in
-# kube-prometheus-stack-values.yaml posts to Slack when any source has a
-# newer build. Baselines live in /etc/java-patch-check.env: after rolling a
-# patched build out, set its baseline to the new version to clear the alert.
-# Ubuntu packages clear on their own once upgraded.
+# kube-prometheus-stack-values.yaml posts to Slack while anything is behind.
+# Each series clears on its own once the patched package or image is running.
 set -uo pipefail
 
 OUT_DIR=/var/lib/node_exporter/textfile
@@ -16,15 +16,10 @@ OUT_DIR=/var/lib/node_exporter/textfile
 
 ok=1
 metrics=()
+declare -A seen latest_for
 
-emit() { # source component current latest
-  local v=1
-  [ "$3" = "$4" ] && v=0
-  metrics+=("java_patch_available{source=\"$1\",component=\"$2\",current=\"$3\",latest=\"$4\"} $v")
-}
-
-json_field() { # python expression over d, reads JSON on stdin
-  python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"
+emit() { # source component current latest is_behind
+  metrics+=("java_patch_available{source=\"$1\",component=\"$2\",current=\"$3\",latest=\"$4\"} $5")
 }
 
 # Ubuntu: newer candidate than installed. Refresh the lists first so a
@@ -35,30 +30,62 @@ for pkg in $UBUNTU_PACKAGES; do
   cur=$(awk '/Installed:/ {print $2}' <<<"$pol")
   new=$(awk '/Candidate:/ {print $2}' <<<"$pol")
   if [ -n "$cur" ] && [ "$cur" != "(none)" ] && [ -n "$new" ]; then
-    emit ubuntu "$pkg" "$cur" "$new"
+    emit ubuntu "$pkg" "$cur" "$new" "$([ "$cur" = "$new" ] && echo 0 || echo 1)"
   else
     ok=0
   fi
 done
 
-# Temurin: the latest GA build of each feature release vs. the baseline.
-for pair in $TEMURIN_BASELINES; do
-  feature=${pair%%=*} base=${pair#*=}
-  latest=$(curl -fsS --max-time 30 \
-    "https://api.adoptium.net/v3/assets/latest/${feature}/hotspot?architecture=x64&image_type=jre&os=linux" |
-    json_field "d[0]['version']['openjdk_version']") && [ -n "$latest" ] &&
-    emit temurin "jdk${feature}" "$base" "$latest" || ok=0
-done
+# Latest Temurin GA version of a feature release, e.g. 21 -> 21.0.13.1.
+temurin_latest() {
+  curl -fsS --max-time 30 \
+    "https://api.adoptium.net/v3/assets/latest/$1/hotspot?architecture=x64&image_type=jre&os=linux" |
+    python3 -c "import json,sys; print(json.load(sys.stdin)[0]['version']['openjdk_version'].split('+')[0])"
+}
 
-# Keycloak: a new release is the only way its Red Hat JDK gets patched.
-latest=$(curl -fsS --max-time 30 -H 'Accept: application/vnd.github+json' \
-  https://api.github.com/repos/keycloak/keycloak/releases/latest |
-  json_field "d['tag_name']") && [ -n "$latest" ] &&
-  emit keycloak keycloak "$KEYCLOAK_BASELINE" "$latest" || ok=0
+# Pods: find JVMs by executable, keep those in a kubepods cgroup, and read
+# the JDK's release file through the process's root. No kubectl exec, so
+# images without a shell work too.
+hash='[bcdfghjklmnpqrstvwxz2456789]'
+for p in /proc/[0-9]*; do
+  exe=$(readlink "$p/exe" 2>/dev/null) || continue
+  [[ $exe == */bin/java ]] || continue
+  grep -q kubepods "$p/cgroup" 2>/dev/null || continue
+
+  ver=$(sed -n 's/^JAVA_VERSION="\(.*\)"/\1/p' "$p/root${exe%/bin/java}/release" 2>/dev/null)
+  pod=$(cat "$p/root/etc/hostname" 2>/dev/null)
+  if [ -z "$ver" ] || [ -z "$pod" ]; then ok=0; continue; fi
+  ns=
+  for d in run var/run; do # /var/run is a symlink to /run in most images
+    f="$p/root/$d/secrets/kubernetes.io/serviceaccount/namespace"
+    [ -r "$f" ] && { ns=$(<"$f"); break; }
+  done
+
+  # Name the workload, not the pod, so a Deployment rollout keeps its series:
+  # drop the ReplicaSet/DaemonSet suffixes. StatefulSet pods (kafka-0) stay.
+  if [[ $pod =~ ^(.+)-${hash}{6,10}-${hash}{5}$ ]] || [[ $pod =~ ^(.+)-${hash}{5}$ ]]; then
+    pod=${BASH_REMATCH[1]}
+  fi
+  component="${ns:-?}/$pod"
+
+  feature=${ver%%.*}
+  if [ -z "${latest_for[$feature]+x}" ]; then
+    latest_for[$feature]=$(temurin_latest "$feature") || { ok=0; latest_for[$feature]=""; }
+  fi
+  latest=${latest_for[$feature]}
+  [ -n "$latest" ] || { ok=0; continue; }
+
+  # Replicas on the same version share one series.
+  [ -n "${seen[$component $ver]+x}" ] && continue
+  seen[$component $ver]=1
+  behind=0
+  [ "$ver" != "$latest" ] && [ "$(printf '%s\n%s\n' "$ver" "$latest" | sort -V | head -1)" = "$ver" ] && behind=1
+  emit pod "$component" "$ver" "$latest" "$behind"
+done
 
 tmp=$(mktemp "$OUT_DIR/.java_patch.XXXXXX")
 {
-  echo "# HELP java_patch_available 1 when a Java build newer than the baseline is published."
+  echo "# HELP java_patch_available 1 when a running/installed Java is older than the latest patch release of its line."
   echo "# TYPE java_patch_available gauge"
   printf '%s\n' "${metrics[@]}"
   echo "# HELP java_patch_check_success 1 when every lookup in the last run succeeded."

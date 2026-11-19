@@ -261,8 +261,8 @@ additionalPrometheusRulesMap:
               severity: warning
               namespace: observability
             annotations:
-              summary: "{{ $labels.source }} {{ $labels.component }}: {{ $labels.latest }} is out (baseline/installed {{ $labels.current }})"
-              description: "Roll it out, then set its baseline in /etc/java-patch-check.env on 230 (Ubuntu packages clear on upgrade)."
+              summary: "{{ $labels.source }} {{ $labels.component }}: running {{ $labels.current }}, {{ $labels.latest }} is out"
+              description: "Upgrade the package or roll out an image with the patched JDK; it clears on the next daily run (sudo systemctl start java-patch-check on 230 to rerun now)."
           - alert: JavaPatchCheckFailing
             expr: |
               java_patch_check_success{job="host-node-exporter"} == 0
