@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Daily check that the Java this host actually runs is the newest patch
-# release of its line. Two sources:
+# release of its line. Three sources:
 #   ubuntu  installed openjdk packages vs. apt's candidate
 #   pod     every JVM running in a Kubernetes pod on this host vs. the latest
 #           Temurin GA build of the same feature release
+#   kind    the kind CLI and the kindnetd image the Kind cluster runs vs. the
+#           latest kind release and kindnetd tag (goodman_reunion #887)
 #
 # Writes node_exporter textfile metrics; JavaPatchAvailable in
 # kube-prometheus-stack-values.yaml posts to Slack while anything is behind.
@@ -82,6 +84,31 @@ for p in /proc/[0-9]*; do
   [ "$ver" != "$latest" ] && [ "$(printf '%s\n%s\n' "$ver" "$latest" | sort -V | head -1)" = "$ver" ] && behind=1
   emit pod "$component" "$ver" "$latest" "$behind"
 done
+
+# kind: kindnetd's critical CVEs (goodman_reunion #887) are suppressed by a
+# Trivy ignore until kind ships a fixed image. A newer kind release or
+# kindnetd tag means the cluster can be rebuilt onto it and the ignore
+# dropped. Each series clears once the host runs the newest of each.
+newer() { # current latest -> 1 if latest sorts after current
+  [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ] && echo 1 || echo 0
+}
+cur=$(kind version 2>/dev/null | awk '{print $2}')
+latest=$(curl -fsS --max-time 30 https://api.github.com/repos/kubernetes-sigs/kind/releases/latest |
+  python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+if [ -n "$cur" ] && [ -n "$latest" ]; then
+  emit kind kind "$cur" "$latest" "$(newer "$cur" "$latest")"
+else
+  ok=0
+fi
+cur=$(docker exec "$KIND_NODE" crictl ps --name kindnet-cni -o json 2>/dev/null |
+  python3 -c "import json,sys; print(json.load(sys.stdin)['containers'][0]['image']['userSpecifiedImage'].rsplit(':', 1)[1])")
+latest=$(curl -fsS --max-time 30 'https://hub.docker.com/v2/repositories/kindest/kindnetd/tags?page_size=100' |
+  python3 -c "import json,re,sys; print(max(t['name'] for t in json.load(sys.stdin)['results'] if re.fullmatch(r'v[0-9]{8}-[0-9a-f]+', t['name'])))")
+if [ -n "$cur" ] && [ -n "$latest" ]; then
+  emit kind kube-system/kindnet "$cur" "$latest" "$(newer "$cur" "$latest")"
+else
+  ok=0
+fi
 
 tmp=$(mktemp "$OUT_DIR/.java_patch.XXXXXX")
 {
