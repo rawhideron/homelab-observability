@@ -1,5 +1,6 @@
 # Posts JavaPatchAvailable (an installed Ubuntu OpenJDK or a JVM running in a
-# pod is behind its latest patch release; see observability/java-patch-check/)
+# pod is behind its latest patch release, or kind/kindnetd has a newer release;
+# see observability/java-patch-check/)
 # and JavaPatchCheckFailing
 # to the Slack channel the Trivy CVE alerts use, via the same alertmanager-slack
 # Secret as host-slack.yaml. Applied by rebuild-hub.sh.
@@ -30,7 +31,7 @@ spec:
             key: webhook-url
           sendResolved: true
           title: >-
-            {{ if eq .CommonLabels.alertname "JavaPatchCheckFailing" }}{{ if eq .Status "firing" }}:warning: Java patch check is failing{{ else }}:white_check_mark: Java patch check is working again{{ end }}{{ else }}{{ if eq .Status "firing" }}:package: Patched Java build(s) available{{ else }}:white_check_mark: Java patch alerts cleared{{ end }}{{ end }}
+            {{ if eq .CommonLabels.alertname "JavaPatchCheckFailing" }}{{ if eq .Status "firing" }}:warning: Java patch check is failing{{ else }}:white_check_mark: Java patch check is working again{{ end }}{{ else }}{{ if eq .Status "firing" }}:package: Patched Java/kind build(s) available{{ else }}:white_check_mark: Java patch alerts cleared{{ end }}{{ end }}
           text: |-
             {{ range .Alerts.Firing }}• {{ .Annotations.summary }}
             {{ end }}{{ if .Alerts.Resolved }}*Resolved:*
