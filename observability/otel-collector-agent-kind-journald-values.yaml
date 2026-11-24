@@ -1,0 +1,101 @@
+# Overrides for kind clusters (zephyrus, jan2026), layered on top of
+# otel-collector-agent-values.yaml:
+#   helm ... --values otel-collector-agent-values.yaml \
+#            --values otel-collector-agent-kind-journald-values.yaml
+#
+# Ships each kind node's systemd journal (kubelet, containerd, systemd) to Loki.
+# Kind nodes are Docker containers running their own journald into the volatile
+# /run/log/journal, which the host agent (host-agent/) never sees. The collector
+# image has no journalctl, so the receiver chroots into the node's root mounted
+# at /hostfs and runs the node's own journalctl.
+#
+# Not for the k3s clusters: their node is the physical host, whose journal the
+# host agent already ships (or deliberately doesn't, on inspiron-k3s).
+#
+# Live copies of these settings are in goodman_reunion's ArgoCD apps
+# (k8s/otel-agent-178-app.yaml, k8s/otel-agent-app.yaml).
+#
+# In Grafana (Loki):  {service_namespace="node-journal", k8s_cluster_name="zephyrus"}
+#                     {service_namespace="node-journal", service_name="kubelet"} | k8s_node_name="reunion-worker"
+
+# Root to chroot into /hostfs and read the root-owned journal files.
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+
+# Run on the control-plane node too, so its journal is collected.
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Equal
+    effect: NoSchedule
+
+# Helm replaces lists, so these restate the base file's volumes.
+extraVolumes:
+  - name: hostfs
+    hostPath:
+      path: /
+  - name: journald-state
+    hostPath:
+      path: /var/lib/otel-agent
+      type: DirectoryOrCreate
+  - name: varlogpods
+    hostPath:
+      path: /var/log/pods
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+
+extraVolumeMounts:
+  - name: hostfs
+    mountPath: /hostfs
+    readOnly: true
+    mountPropagation: HostToContainer
+  - name: journald-state
+    mountPath: /var/lib/otelcol
+  - name: varlogpods
+    mountPath: /var/log/pods
+    readOnly: true
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+
+config:
+  extensions:
+    # Read cursor, so a restarted agent resumes instead of skipping the gap.
+    file_storage/journald:
+      directory: /var/lib/otelcol/journald
+      create_directory: true
+
+  receivers:
+    journald:
+      root_path: /hostfs
+      journalctl_path: /usr/bin/journalctl
+      directory: /run/log/journal
+      start_at: end
+      priority: info
+      convert_to_semantic_conventions: true
+      storage: file_storage/journald
+
+  processors:
+    # Entries are grouped per process, so the executable name (kubelet,
+    # containerd, ...) is a safe service.name. Loki indexes service_name and
+    # service_namespace.
+    resource/journald:
+      attributes:
+        - action: insert
+          key: service.name
+          from_attribute: process.executable.name
+        - action: insert
+          key: service.name
+          value: journald
+        - action: upsert
+          key: service.namespace
+          value: node-journal
+
+  service:
+    extensions: [health_check, file_storage/journald]
+    pipelines:
+      logs/journald:
+        receivers: [journald]
+        processors: [memory_limiter, resource/journald, resource, batch]
+        exporters: [otlp]
