@@ -269,6 +269,7 @@ helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
   --version 0.150.1 \
   -n otel-agent \
   --values observability/otel-collector-agent-values.yaml \
+  --values observability/otel-collector-agent-kind-journald-values.yaml \
   --set "extraEnvs[0].value=jan2026" --wait --timeout 3m
 ```
 
@@ -282,8 +283,37 @@ helm upgrade --install otel-agent open-telemetry/opentelemetry-collector \
   --version 0.150.1 \
   -n otel-agent \
   --values observability/otel-collector-agent-values.yaml \
+  --values observability/otel-collector-agent-kind-journald-values.yaml \
   --set "extraEnvs[0].value=zephyrus" --wait --timeout 3m
 ```
+
+### Kind node journals (journald)
+
+Kind nodes are Docker containers with their own systemd and journald, writing to
+the volatile `/run/log/journal` inside each node container. The host agent can't
+see those journals, so the kind agents read them too, using
+`otel-collector-agent-kind-journald-values.yaml`. The journald receiver chroots
+into the node's root (a read-only `/` hostPath at `/hostfs`) and runs the node's
+own `journalctl`, because the collector image has none. This means the agent runs
+as root and tolerates the control-plane taint. The read cursor is kept in
+`/var/lib/otel-agent` on each node, so a restarted agent resumes where it left off.
+
+The live copies are goodman_reunion's ArgoCD apps (`k8s/otel-agent-178-app.yaml`
+for zephyrus, `k8s/otel-agent-app.yaml` for jan2026). The k3s clusters don't use
+this overlay: their node is the physical host, whose journal the host agent ships.
+
+Query in Grafana → Explore → Loki:
+
+```logql
+{service_namespace="node-journal"}                                    # every kind node, every cluster
+{service_namespace="node-journal", k8s_cluster_name="zephyrus", service_name="kubelet"}
+{service_namespace="node-journal"} | k8s_node_name="reunion-worker" |= "error"
+```
+
+`service_name` is the process (`kubelet`, `containerd`, `systemd`, ...). The node
+name (`k8s_node_name`, `host_name`) and every journald field (`journald__SYSTEMD_UNIT`, ...)
+are structured metadata. Host journals from the host agent have `host_name` but no
+`service_namespace`.
 
 ### Source cluster: inspiron-k3s (192.168.1.177)
 
@@ -463,6 +493,7 @@ homelab-observability/
 ├── observability/
 │   ├── otel-collector-gateway-values.yaml   # Hub OTel gateway (deployment)
 │   ├── otel-collector-agent-values.yaml     # Source cluster agents (DaemonSet)
+│   ├── otel-collector-agent-kind-journald-values.yaml  # Kind overlay: node journald
 │   ├── otel-forward.py                      # Host-side TCP proxy for Kind NodePorts
 │   ├── otel-forward.service                 # systemd unit for the host-side proxy
 │   ├── change-grafana-password.sh           # Rotate the Grafana admin password
@@ -493,6 +524,7 @@ homelab-observability/
 |---|---|---|---|
 | Metrics | kubeletstats + hostmetrics receivers | Prometheus | ✅ Flowing — `k8s_cluster_name` label set |
 | Logs | filelog receiver (container logs) | Loki | ✅ Flowing — all namespaces |
+| Logs | journald receiver (kind node journals) | Loki | ✅ `service_namespace="node-journal"` |
 | Traces | OTLP receiver | Tempo | 🔵 Ready — requires app instrumentation |
 
 > Traces will populate once application services (e.g. `attendees-api`) are instrumented with the OpenTelemetry SDK to emit OTLP spans.
