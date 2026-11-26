@@ -1,0 +1,705 @@
+{
+  "uid": "node-journals",
+  "title": "Node Journals",
+  "tags": [
+    "logs",
+    "journald",
+    "loki"
+  ],
+  "description": "systemd journals of the kind cluster nodes (zephyrus, jan2026) and the physical hosts, from Loki. Source: homelab-observability/observability/dashboards/node-journals.json",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "datasource",
+        "label": "Data source",
+        "query": "loki",
+        "current": {
+          "text": "Loki",
+          "value": "Loki"
+        },
+        "hide": 0
+      },
+      {
+        "type": "query",
+        "name": "cluster",
+        "label": "Cluster",
+        "description": "Kind clusters sending node journals.",
+        "datasource": {
+          "type": "loki",
+          "uid": "${datasource}"
+        },
+        "query": "label_values({service_namespace=\"node-journal\"}, k8s_cluster_name)",
+        "definition": "label_values({service_namespace=\"node-journal\"}, k8s_cluster_name)",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "hide": 0
+      },
+      {
+        "type": "query",
+        "name": "service",
+        "label": "Service",
+        "description": "Process on the node: kubelet, containerd, systemd, ...",
+        "datasource": {
+          "type": "loki",
+          "uid": "${datasource}"
+        },
+        "query": "label_values({service_namespace=\"node-journal\", k8s_cluster_name=~\"$cluster\"}, service_name)",
+        "definition": "label_values({service_namespace=\"node-journal\", k8s_cluster_name=~\"$cluster\"}, service_name)",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "hide": 0
+      },
+      {
+        "type": "textbox",
+        "name": "node",
+        "label": "Node (regex)",
+        "description": "Regex on the node name, e.g. reunion-worker2 or reunion-worker.*. Node isn't a Loki index label, so this is a text box rather than a dropdown.",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": ".*",
+            "value": ".*"
+          }
+        ],
+        "hide": 0
+      },
+      {
+        "type": "custom",
+        "name": "severity",
+        "label": "Severity",
+        "description": "Filters log lines by their text: klog E/W/F prefixes and logrus level=.",
+        "query": "All : .*,Errors : ^[EF][0-9]{4} |level=(error|fatal),Errors + warnings : ^[EFW][0-9]{4} |level=(error|fatal|warn)",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": ".*"
+          },
+          {
+            "selected": false,
+            "text": "Errors",
+            "value": "^[EF][0-9]{4} |level=(error|fatal)"
+          },
+          {
+            "selected": false,
+            "text": "Errors + warnings",
+            "value": "^[EFW][0-9]{4} |level=(error|fatal|warn)"
+          }
+        ],
+        "current": {
+          "text": "All",
+          "value": ".*"
+        },
+        "hide": 0
+      },
+      {
+        "type": "textbox",
+        "name": "search",
+        "label": "Search",
+        "description": "Text the log line must contain (case-sensitive).",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "hide": 0
+      },
+      {
+        "type": "textbox",
+        "name": "host",
+        "label": "Host (regex)",
+        "description": "Host journals row: regex on host_name, e.g. pop-os.",
+        "query": ".+",
+        "current": {
+          "text": ".+",
+          "value": ".+"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": ".+",
+            "value": ".+"
+          }
+        ],
+        "hide": 0
+      },
+      {
+        "type": "textbox",
+        "name": "unit",
+        "label": "Unit (regex)",
+        "description": "Host journals row: regex on journald_SYSTEMD_UNIT, e.g. k3s.service.",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": ".*",
+            "value": ".*"
+          }
+        ],
+        "hide": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Journal lines",
+      "description": "Kind node journal lines in the time range, for the selected clusters, services and nodes.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "sum(count_over_time({service_namespace=\"node-journal\", k8s_cluster_name=~\"$cluster\", service_name=~\"$service\"} | k8s_node_name=~\"$node\" [$__range]))",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Errors",
+      "description": "Lines that look like errors: klog E/F lines (kubelet) or level=error/fatal (containerd). journald priority is useless here because kubelet and containerd log everything to stdout as info.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "sum(count_over_time({service_namespace=\"node-journal\", k8s_cluster_name=~\"$cluster\", service_name=~\"$service\"} | k8s_node_name=~\"$node\" |~ `^[EF][0-9]{4} |level=(error|fatal)` [$__range]))",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Warnings",
+      "description": "klog W lines (kubelet) or level=warn/warning (containerd).",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "sum(count_over_time({service_namespace=\"node-journal\", k8s_cluster_name=~\"$cluster\", service_name=~\"$service\"} | k8s_node_name=~\"$node\" |~ `^W[0-9]{4} |level=warn` [$__range]))",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Nodes reporting",
+      "description": "Distinct cluster/node pairs that sent journal lines in the time range (zephyrus has 3 kind nodes, jan2026 has 5). Control-plane nodes can go hours without a line: once running, their kubelet and containerd log very little.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "count(sum by (k8s_cluster_name, k8s_node_name) (count_over_time({service_namespace=\"node-journal\", k8s_cluster_name=~\"$cluster\", service_name=~\"$service\"} | k8s_node_name=~\"$node\" [$__range])))",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Journal lines per node",
+      "description": "Both kind clusters name their nodes reunion-*, so the legend shows cluster / node.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "interval": "1m",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "sum by (k8s_cluster_name, k8s_node_name) (count_over_time({service_namespace=\"node-journal\", k8s_cluster_name=~\"$cluster\", service_name=~\"$service\"} | k8s_node_name=~\"$node\" [$__interval]))",
+          "queryType": "range",
+          "editorMode": "code",
+          "legendFormat": "{{k8s_cluster_name}} / {{k8s_node_name}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Errors per node and service",
+      "description": "Error-looking lines (see the Errors stat) by cluster, node and process.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "interval": "1m",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "sum by (k8s_cluster_name, k8s_node_name, service_name) (count_over_time({service_namespace=\"node-journal\", k8s_cluster_name=~\"$cluster\", service_name=~\"$service\"} | k8s_node_name=~\"$node\" |~ `^[EF][0-9]{4} |level=(error|fatal)` [$__interval]))",
+          "queryType": "range",
+          "editorMode": "code",
+          "legendFormat": "{{k8s_cluster_name}} / {{k8s_node_name}} / {{service_name}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "Node journal",
+      "description": "Kind node journals. Click a line for every field: k8s_node_name, journald_SYSTEMD_UNIT, process.pid and so on. Narrow with the Cluster, Service, Node, Severity and Search controls above.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 20,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "{service_namespace=\"node-journal\", k8s_cluster_name=~\"$cluster\", service_name=~\"$service\"} | k8s_node_name=~\"$node\" |~ `$severity` |= `$search`",
+          "queryType": "range",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showCommonLabels": false
+      }
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Host journals (physical machines, from the host agents)",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "panels": [
+        {
+          "id": 9,
+          "type": "timeseries",
+          "title": "Host journal lines per host",
+          "description": "Journals of the physical hosts (Zephyrus hub, pop-os) shipped by the standalone host agent, which covers the k3s cluster on the hub. Uses the Host, Unit and Search controls.",
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 41
+          },
+          "interval": "1m",
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "${datasource}"
+              },
+              "refId": "A",
+              "expr": "sum by (host_name) (count_over_time({service_name=\"unknown_service\"} | host_name=~\"$host\" | journald_SYSTEMD_UNIT=~\"$unit\" [$__interval]))",
+              "queryType": "range",
+              "editorMode": "code",
+              "legendFormat": "{{host_name}}"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "sum"
+              ],
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "drawStyle": "bars",
+                "fillOpacity": 80,
+                "lineWidth": 1,
+                "stacking": {
+                  "mode": "normal",
+                  "group": "A"
+                }
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 10,
+          "type": "logs",
+          "title": "Host journal",
+          "description": "Host journals. Filter with Host (regex on host_name) and Unit (regex on journald_SYSTEMD_UNIT, for example k3s.service).",
+          "datasource": {
+            "type": "loki",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 20,
+            "w": 24,
+            "x": 0,
+            "y": 49
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "${datasource}"
+              },
+              "refId": "A",
+              "expr": "{service_name=\"unknown_service\"} | host_name=~\"$host\" | journald_SYSTEMD_UNIT=~\"$unit\" |= `$search`",
+              "queryType": "range",
+              "editorMode": "code"
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "wrapLogMessage": true,
+            "sortOrder": "Descending",
+            "enableLogDetails": true,
+            "prettifyLogMessage": false,
+            "dedupStrategy": "none",
+            "showLabels": false,
+            "showCommonLabels": false
+          }
+        }
+      ]
+    }
+  ]
+}

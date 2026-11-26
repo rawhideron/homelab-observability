@@ -186,6 +186,17 @@ The in-cluster agents' `system_*` metrics are left out: they report
 host-wide CPU/memory once per node and only the agent pod's own network,
 and their filesystem numbers are the kind node container's, not the host's.
 
+**Node Journals** (`/d/node-journals`, from `observability/dashboards/node-journals.json`)
+shows systemd journals from Loki. The top section covers the kind cluster nodes
+(zephyrus, jan2026), with Cluster and Service dropdowns plus Node, Severity and
+Search filters: line, error and warning counts, lines per node, errors per node
+and service, and the log lines themselves. Severity matches the text of each
+line (klog `E`/`W`/`F` prefixes, logrus `level=`), not journald's priority,
+because kubelet and containerd log everything at `info`. Node is a text box
+(regex) because the node name isn't a Loki index label. The collapsed **Host
+journals** row shows the physical hosts' journals from the host agent, filtered
+with Host and Unit (for example `k3s.service`).
+
 **Node Exporter Full** (`/d/rYdddlPWk`, from
 `observability/dashboards/node-exporter-full.json`, grafana.com 1860) shows the
 same machines from node_exporter. Set **Job** to `host-node-exporter` for the
@@ -311,7 +322,7 @@ Query in Grafana → Explore → Loki:
 ```
 
 `service_name` is the process (`kubelet`, `containerd`, `systemd`, ...). The node
-name (`k8s_node_name`, `host_name`) and every journald field (`journald__SYSTEMD_UNIT`, ...)
+name (`k8s_node_name`, `host_name`) and every journald field (`journald_SYSTEMD_UNIT`, ...)
 are structured metadata. Host journals from the host agent have `host_name` but no
 `service_namespace`.
 
@@ -494,6 +505,7 @@ homelab-observability/
 │   ├── otel-collector-gateway-values.yaml   # Hub OTel gateway (deployment)
 │   ├── otel-collector-agent-values.yaml     # Source cluster agents (DaemonSet)
 │   ├── otel-collector-agent-kind-journald-values.yaml  # Kind overlay: node journald
+│   ├── dashboards/                          # Grafana dashboards (ConfigMaps from rebuild-hub.sh)
 │   ├── otel-forward.py                      # Host-side TCP proxy for Kind NodePorts
 │   ├── otel-forward.service                 # systemd unit for the host-side proxy
 │   ├── change-grafana-password.sh           # Rotate the Grafana admin password
