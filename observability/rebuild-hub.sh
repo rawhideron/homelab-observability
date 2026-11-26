@@ -53,6 +53,7 @@ helm upgrade --install otel-gateway open-telemetry/opentelemetry-collector \
 for dash in \
   kubernetes-multi-cluster:grafana-dashboard-k8s-multi-cluster \
   hosts:grafana-dashboard-hosts \
+  node-journals:grafana-dashboard-node-journals \
   nvidia-dcgm:dcgm-exporter-dashboard \
   node-exporter-full:grafana-dashboard-node-exporter-full; do
   kubectl -n "${NAMESPACE}" create configmap "${dash#*:}" \
